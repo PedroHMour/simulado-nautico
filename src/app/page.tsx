@@ -4,8 +4,8 @@ import React, { useState, useEffect } from "react";
 import { createClient } from '@supabase/supabase-js';
 import { 
   Anchor, Clock, CheckCircle, XCircle, ChevronRight, 
-  Home, User, BookOpen, LogOut, Menu, 
-  Award, Phone, Lock, Mail, ArrowLeft, Loader2, UserPlus
+  User, BookOpen, LogOut, Menu, 
+  Award, Phone, Lock, Mail, ArrowLeft, Loader2
 } from "lucide-react";
 
 // --- CONFIGURAÇÃO DO SUPABASE ---
@@ -13,6 +13,24 @@ const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
 
 const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
+
+// --- TIPAGEM ---
+// Define o formato do usuário para o TypeScript não reclamar de "any"
+interface Usuario {
+  email?: string;
+  user_metadata?: {
+    full_name?: string;
+  };
+}
+
+// Props para o Navbar (já que agora ele fica fora do App)
+interface NavbarProps {
+  usuario: Usuario | null;
+  setTelaAtual: (tela: "login" | "cadastro" | "recuperar" | "home" | "simulado" | "resultado") => void;
+  handleLogout: () => void;
+  menuMobileAberto: boolean;
+  setMenuMobileAberto: (v: boolean) => void;
+}
 
 // --- DADOS MOCKADOS ---
 const CATEGORIAS = [
@@ -46,28 +64,59 @@ const PERGUNTAS_MOCK = [
   },
 ];
 
+// --- COMPONENTE NAVBAR (EXTRAÍDO PARA FORA DO APP) ---
+const Navbar = ({ usuario, setTelaAtual, handleLogout, menuMobileAberto, setMenuMobileAberto }: NavbarProps) => (
+  <>
+    <div className="bg-blue-950 text-white text-xs py-2 px-4 hidden md:flex justify-between items-center">
+      <span>Central do Aluno Exclusiva</span>
+      <div className="flex gap-4"><span className="flex items-center gap-1"><Phone size={12} /> Suporte</span><span className="flex items-center gap-1"><CheckCircle size={12} /> Online</span></div>
+    </div>
+    <header className="bg-white shadow-md border-b border-gray-100 sticky top-0 z-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="flex justify-between items-center h-16 md:h-20">
+          <div className="flex items-center gap-2 cursor-pointer" onClick={() => setTelaAtual("home")}>
+            <div className="bg-blue-900 p-2 rounded text-white"><Anchor size={24} /></div>
+            <div className="leading-tight"><h1 className="text-xl font-bold text-blue-900">NÁUTICA<span className="text-blue-500">PRO</span></h1><p className="text-[10px] text-gray-500 font-medium tracking-widest uppercase">Sistema de Ensino</p></div>
+          </div>
+          <nav className="hidden md:flex items-center gap-8">
+            <button onClick={() => setTelaAtual("home")} className="text-blue-900 font-medium">Simulados</button>
+            <div className="flex items-center gap-3 cursor-pointer group relative">
+              <div className="text-right"><p className="text-sm font-bold text-gray-800">{usuario?.user_metadata?.full_name || usuario?.email?.split('@')[0] || "Aluno"}</p><p className="text-xs text-green-600">Online</p></div>
+              <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 font-bold border-2 border-white shadow-sm"><User size={20} /></div>
+              <button onClick={handleLogout} className="absolute -bottom-10 right-0 w-24 bg-white text-red-600 text-sm font-medium py-2 px-4 shadow-lg rounded-lg border border-gray-100 hidden group-hover:flex items-center gap-2"><LogOut size={14} /> Sair</button>
+            </div>
+          </nav>
+          <button className="md:hidden text-gray-600 p-2" onClick={() => setMenuMobileAberto(!menuMobileAberto)}><Menu size={28} /></button>
+        </div>
+      </div>
+      {menuMobileAberto && (<div className="md:hidden bg-white border-t border-gray-100 p-4 space-y-4 shadow-lg absolute w-full z-50"><button className="block w-full text-left font-bold text-blue-900">Simulados</button><button onClick={handleLogout} className="block w-full text-left text-red-600 font-bold">Sair</button></div>)}
+    </header>
+  </>
+);
+
+// --- APP PRINCIPAL ---
 export default function App() {
-  // Estados de Navegação
   const [telaAtual, setTelaAtual] = useState<"login" | "cadastro" | "recuperar" | "home" | "simulado" | "resultado">("login");
   const [loading, setLoading] = useState(false);
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   
-  // Estados de Auth
+  // Auth States
   const [nome, setNome] = useState("");
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [erroAuth, setErroAuth] = useState("");
   const [msgSucesso, setMsgSucesso] = useState("");
-  const [usuario, setUsuario] = useState<any>(null);
+  // Correção do 'any': agora usa a interface Usuario ou null
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
 
-  // Estados do Simulado
+  // Simulado States
   const [indicePergunta, setIndicePergunta] = useState(0);
   const [respostasUsuario, setRespostasUsuario] = useState<number[]>([]);
   const [tempo, setTempo] = useState(0);
   const [cronometroAtivo, setCronometroAtivo] = useState(false);
 
-  // Verificar Sessão
   useEffect(() => {
+    if (!supabaseUrl) return;
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
@@ -75,74 +124,51 @@ export default function App() {
         setTelaAtual("home");
       }
     };
-    if (!supabaseUrl.includes('SUA_URL')) checkUser();
+    checkUser();
   }, []);
 
   // --- FUNÇÕES DE AUTH ---
-  
-  // 1. LOGIN
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setErroAuth("");
 
-    // Fallback Demo
-    if (supabaseUrl.includes('SUA_URL')) {
+    if (!supabaseUrl) {
         setTimeout(() => { setUsuario({ email: email, user_metadata: { full_name: "Visitante Demo" } }); setTelaAtual("home"); setLoading(false); }, 1000);
         return;
     }
 
     const { data, error } = await supabase.auth.signInWithPassword({ email, password: senha });
-
-    if (error) {
-      setErroAuth("E-mail ou senha incorretos.");
-    } else {
-      setUsuario(data.user);
-      setTelaAtual("home");
-    }
+    if (error) setErroAuth("E-mail ou senha incorretos.");
+    else { setUsuario(data.user); setTelaAtual("home"); }
     setLoading(false);
   };
 
-  // 2. CADASTRO (NOVA)
   const handleCadastro = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setErroAuth("");
 
-    if (supabaseUrl.includes('SUA_URL')) {
+    if (!supabaseUrl) {
         setTimeout(() => { setUsuario({ email: email, user_metadata: { full_name: nome } }); setTelaAtual("home"); setLoading(false); }, 1000);
         return;
     }
 
     const { data, error } = await supabase.auth.signUp({
-      email,
-      password: senha,
-      options: {
-        data: { full_name: nome }, // Salva o nome para exibir depois
-      },
+      email, password: senha, options: { data: { full_name: nome }, },
     });
 
-    if (error) {
-      setErroAuth(error.message);
-    } else {
-      // Se "Confirm Email" estiver desligado no Supabase, ele loga direto
-      if (data.session) {
-        setUsuario(data.user);
-        setTelaAtual("home");
-      } else {
-        setMsgSucesso("Conta criada! Verifique seu e-mail para confirmar.");
-        setTelaAtual("login");
-      }
+    if (error) setErroAuth(error.message);
+    else {
+      if (data.session) { setUsuario(data.user); setTelaAtual("home"); } 
+      else { setMsgSucesso("Conta criada! Verifique seu e-mail."); setTelaAtual("login"); }
     }
     setLoading(false);
   };
 
-  // 3. RECUPERAÇÃO
   const handleRecuperacao = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true); setErroAuth(""); setMsgSucesso("");
     
-    if (supabaseUrl.includes('SUA_URL')) {
-        setMsgSucesso(`Link enviado para ${email}`); setLoading(false); return;
-    }
+    if (!supabaseUrl) { setMsgSucesso(`Link enviado para ${email}`); setLoading(false); return; }
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: window.location.origin });
     if (error) setErroAuth(error.message);
@@ -151,11 +177,11 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    if (supabaseUrl) await supabase.auth.signOut();
     setUsuario(null); setTelaAtual("login"); setEmail(""); setSenha(""); setNome("");
   };
 
-  // Funções do Simulado (Mantidas iguais)
+  // --- FUNÇÕES SIMULADO ---
   useEffect(() => {
     let int: NodeJS.Timeout;
     if (cronometroAtivo) int = setInterval(() => setTempo(t => t + 1), 1000);
@@ -168,46 +194,18 @@ export default function App() {
   const proximaPergunta = () => { if (indicePergunta < PERGUNTAS_MOCK.length - 1) setIndicePergunta(i => i + 1); else { setCronometroAtivo(false); setTelaAtual("resultado"); window.scrollTo(0, 0); }};
   const calcularAcertos = () => respostasUsuario.reduce((acc, resp, i) => resp === PERGUNTAS_MOCK[i].correta ? acc + 1 : acc, 0);
 
-  // --- UI COMPONENTS ---
-  const Navbar = () => (
-    <>
-      <div className="bg-blue-950 text-white text-xs py-2 px-4 hidden md:flex justify-between items-center">
-        <span>Central do Aluno Exclusiva</span>
-        <div className="flex gap-4"><span className="flex items-center gap-1"><Phone size={12} /> Suporte</span><span className="flex items-center gap-1"><CheckCircle size={12} /> Online</span></div>
-      </div>
-      <header className="bg-white shadow-md border-b border-gray-100 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16 md:h-20">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={() => setTelaAtual("home")}>
-              <div className="bg-blue-900 p-2 rounded text-white"><Anchor size={24} /></div>
-              <div className="leading-tight"><h1 className="text-xl font-bold text-blue-900">NÁUTICA<span className="text-blue-500">PRO</span></h1><p className="text-[10px] text-gray-500 font-medium tracking-widest uppercase">Sistema de Ensino</p></div>
-            </div>
-            <nav className="hidden md:flex items-center gap-8">
-              <button onClick={() => setTelaAtual("home")} className="text-blue-900 font-medium">Simulados</button>
-              <div className="flex items-center gap-3 cursor-pointer group relative">
-                <div className="text-right"><p className="text-sm font-bold text-gray-800">{usuario?.user_metadata?.full_name || usuario?.email?.split('@')[0] || "Aluno"}</p><p className="text-xs text-green-600">Online</p></div>
-                <div className="h-10 w-10 bg-gray-200 rounded-full flex items-center justify-center text-gray-600 font-bold border-2 border-white shadow-sm"><User size={20} /></div>
-                <button onClick={handleLogout} className="absolute -bottom-10 right-0 w-24 bg-white text-red-600 text-sm font-medium py-2 px-4 shadow-lg rounded-lg border border-gray-100 hidden group-hover:flex items-center gap-2"><LogOut size={14} /> Sair</button>
-              </div>
-            </nav>
-            <button className="md:hidden text-gray-600 p-2" onClick={() => setMenuMobileAberto(!menuMobileAberto)}><Menu size={28} /></button>
-          </div>
-        </div>
-        {menuMobileAberto && (<div className="md:hidden bg-white border-t border-gray-100 p-4 space-y-4 shadow-lg absolute w-full z-50"><button className="block w-full text-left font-bold text-blue-900">Simulados</button><button onClick={handleLogout} className="block w-full text-left text-red-600 font-bold">Sair</button></div>)}
-      </header>
-    </>
-  );
-
-  // --- TELA: LOGIN / CADASTRO / RECUPERAR ---
+  // --- RENDERIZAÇÃO ---
   if (["login", "cadastro", "recuperar"].includes(telaAtual)) {
     const titulos = { login: "Acesse sua conta", cadastro: "Crie sua conta", recuperar: "Recuperar Acesso" };
     const descricoes = { login: "Entre com suas credenciais de aluno.", cadastro: "Preencha os dados para começar.", recuperar: "Enviaremos instruções para seu e-mail." };
+    const currentMode = telaAtual as keyof typeof titulos;
 
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col md:flex-row font-sans">
         <div className="hidden md:flex md:w-1/2 bg-blue-900 relative overflow-hidden items-center justify-center p-12 text-white">
            <div className="absolute inset-0 opacity-20 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
            <div className="absolute inset-0 bg-gradient-to-br from-blue-900 to-blue-950 opacity-90"></div>
+           {/* eslint-disable-next-line @next/next/no-img-element */}
            <img src="https://images.unsplash.com/photo-1559136555-9303baea8ebd?auto=format&fit=crop&q=80&w=2000" className="absolute inset-0 object-cover opacity-20 mix-blend-overlay" alt="Mar" />
            <div className="relative z-10 max-w-lg">
              <div className="mb-8 inline-block bg-white/10 backdrop-blur-md p-4 rounded-2xl border border-white/20"><Anchor size={48} className="text-white" /></div>
@@ -220,8 +218,8 @@ export default function App() {
           <div className="w-full max-w-md space-y-8">
             <div className="md:hidden flex justify-center mb-8"><div className="bg-blue-900 p-3 rounded-lg text-white"><Anchor size={32} /></div></div>
             <div className="text-center md:text-left">
-              <h2 className="text-3xl font-bold text-gray-900 tracking-tight">{titulos[telaAtual]}</h2>
-              <p className="mt-3 text-gray-500">{descricoes[telaAtual]}</p>
+              <h2 className="text-3xl font-bold text-gray-900 tracking-tight">{titulos[currentMode]}</h2>
+              <p className="mt-3 text-gray-500">{descricoes[currentMode]}</p>
             </div>
 
             {(erroAuth || msgSucesso) && (
@@ -276,11 +274,10 @@ export default function App() {
     );
   }
 
-  // --- TELA: HOME / SIMULADO / RESULTADO (Mesmo código de antes) ---
   if (telaAtual === "home") {
     return (
       <div className="min-h-screen bg-slate-50 font-sans pb-20 md:pb-0">
-        <Navbar />
+        <Navbar usuario={usuario} setTelaAtual={setTelaAtual} handleLogout={handleLogout} menuMobileAberto={menuMobileAberto} setMenuMobileAberto={setMenuMobileAberto} />
         <div className="bg-blue-900 text-white relative overflow-hidden">
           <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
           <div className="max-w-7xl mx-auto px-4 py-12 md:py-20 relative z-10 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -302,6 +299,7 @@ export default function App() {
             {CATEGORIAS.map((cat) => (
               <div key={cat.id} onClick={iniciarSimulado} className="group bg-white rounded-2xl shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer border border-gray-100 overflow-hidden flex flex-col">
                 <div className="h-48 bg-gray-200 relative overflow-hidden">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={cat.img} alt={cat.titulo} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                   <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                   <div className="absolute bottom-4 left-4 text-white"><h4 className="font-bold text-lg">{cat.titulo}</h4><p className="text-xs text-gray-200">{cat.subtitulo}</p></div>

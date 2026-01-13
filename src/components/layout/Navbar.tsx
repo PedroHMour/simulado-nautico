@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import Image from "next/image"; // Importação adicionada para a Logo
 import { Anchor, Phone, CheckCircle, User, LogOut, Menu, School } from "lucide-react";
 import { TelaTipo, Usuario } from "@/types";
 
@@ -49,16 +50,22 @@ export const Navbar = ({
             
             {/* LOGO DINÂMICA */}
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setTelaAtual("home")}>
-              {/* Se tiver URL de logo, mostra a imagem. Se não, mostra ícone padrão colorido */}
+              
+              {/* LÓGICA DA IMAGEM: */}
               {logoUrl ? (
+                // CASO 1: É aluno de escola parceira -> Mostra logo da escola (URL externa)
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoUrl} alt="Logo Escola" className="h-12 w-auto object-contain" />
               ) : (
-                <div 
-                  className="p-2 rounded text-white transition-colors duration-500 shadow-sm"
-                  style={{ backgroundColor: themeColor }}
-                >
-                  {usuario?.school ? <School size={24} /> : <Anchor size={24} />}
+                // CASO 2: É aluno direto -> Mostra a Logo Oficial NáuticaPro (/logo.png)
+                <div className="relative h-12 w-12 flex items-center justify-center">
+                   <Image 
+                     src="/logo.png" 
+                     alt="Logo NáuticaPro" 
+                     width={48} 
+                     height={48} 
+                     className="object-contain"
+                   />
                 </div>
               )}
               

@@ -1,81 +1,207 @@
 import React from "react";
-import { Anchor, Loader2, User, Mail, Lock } from "lucide-react";
+import { Loader2, Mail, Lock, User, ArrowRight, Smartphone } from "lucide-react";
+import { supabase } from "@/lib/supabase"; // Confirme se o caminho está certo
 
-interface AuthProps {
+interface AuthFormProps {
   loading: boolean;
   onSubmit: (e: React.FormEvent) => void;
-  error: string;
+  error: string | null;
   email: string;
   setEmail: (v: string) => void;
   senha: string;
   setSenha: (v: string) => void;
-  nome?: string;
-  setNome?: (v: string) => void;
-  alternarModo: () => void;
+  nome: string;
+  setNome: (v: string) => void;
+  telefone: string;
+  setTelefone: (v: string) => void;
   modo: "login" | "cadastro";
+  alternarModo: () => void;
 }
 
-export const AuthForm = ({ loading, onSubmit, error, email, setEmail, senha, setSenha, nome, setNome, alternarModo, modo }: AuthProps) => {
+export const AuthForm = ({
+  loading,
+  onSubmit,
+  error,
+  email,
+  setEmail,
+  senha,
+  setSenha,
+  nome,
+  setNome,
+  telefone,
+  setTelefone,
+  modo,
+  alternarModo,
+}: AuthFormProps) => {
+
+  // Função que chama o Google
+  const handleGoogleLogin = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          // window.location.origin pega automaticamente localhost ou vercel
+          redirectTo: `${window.location.origin}/auth/callback`, 
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+        },
+      });
+      if (error) throw error;
+    } catch (err) {
+      console.error("Erro ao iniciar Google Auth:", err);
+      alert("Erro ao conectar com Google. Verifique o console.");
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col justify-center items-center p-6 font-sans">
-      <div className="w-full max-w-md bg-white p-8 rounded-2xl shadow-sm border border-gray-100">
-        <div className="text-center mb-8">
-          <div className="bg-blue-900 w-16 h-16 rounded-xl flex items-center justify-center mx-auto mb-4">
-            <Anchor size={32} className="text-white" />
-          </div>
-          <h1 className="text-2xl font-bold text-blue-900">NÁUTICA<span className="text-blue-500">PRO</span></h1>
-          <p className="text-gray-500 text-sm mt-2">
-            {modo === 'login' ? 'Bem-vindo de volta' : 'Crie sua conta para começar'}
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">
+      <div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden border border-gray-100">
+        
+        {/* Cabeçalho */}
+        <div className="bg-blue-900 p-8 text-center">
+          <h1 className="text-3xl font-bold text-white mb-2">NÁUTICA<span className="text-blue-400">PRO</span></h1>
+          <p className="text-blue-200 text-sm">
+            {modo === "login" ? "Bem-vindo de volta, comandante!" : "Inicie sua jornada náutica hoje."}
           </p>
         </div>
 
-        <form className="space-y-4" onSubmit={onSubmit}>
-          {modo === 'cadastro' && setNome && (
-            <div className="relative">
-              <User className="absolute left-3 top-3 text-gray-400" size={20} />
-              <input 
-                type="text" 
-                placeholder="Nome Completo" 
-                className="w-full pl-10 p-3 border rounded-lg text-black focus:ring-2 focus:ring-blue-900 outline-none" 
-                value={nome} 
-                onChange={e => setNome(e.target.value)} 
+        <div className="p-8">
+          
+          {/* --- BOTÃO DO GOOGLE (NOVIDADE) --- */}
+          <button
+            onClick={handleGoogleLogin}
+            type="button"
+            className="w-full flex items-center justify-center gap-3 bg-white border border-gray-300 text-gray-700 font-medium py-3 px-4 rounded-xl hover:bg-gray-50 hover:shadow-md transition-all mb-6 group"
+          >
+            {/* Ícone SVG Oficial do Google */}
+            <svg className="w-5 h-5 group-hover:scale-110 transition-transform" viewBox="0 0 24 24">
+              <path
+                d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
+                fill="#4285F4"
               />
+              <path
+                d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
+                fill="#34A853"
+              />
+              <path
+                d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.84z"
+                fill="#FBBC05"
+              />
+              <path
+                d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
+                fill="#EA4335"
+              />
+            </svg>
+            {modo === 'login' ? 'Entrar com Google' : 'Cadastrar com Google'}
+          </button>
+
+          {/* Divisor */}
+          <div className="flex items-center gap-4 mb-6">
+            <div className="h-px bg-gray-200 flex-1"></div>
+            <span className="text-xs text-gray-400 font-medium uppercase">Ou via e-mail</span>
+            <div className="h-px bg-gray-200 flex-1"></div>
+          </div>
+
+          {/* Formulário Tradicional */}
+          <form onSubmit={onSubmit} className="space-y-4">
+            {modo === "cadastro" && (
+              <>
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase ml-1">Nome Completo</label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3.5 text-gray-400" size={20} />
+                    <input
+                      type="text"
+                      required
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      placeholder="Seu nome"
+                      value={nome}
+                      onChange={(e) => setNome(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-gray-500 uppercase ml-1">Celular</label>
+                  <div className="relative">
+                    <Smartphone className="absolute left-3 top-3.5 text-gray-400" size={20} />
+                    <input
+                      type="tel"
+                      required
+                      className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                      placeholder="(11) 99999-9999"
+                      value={telefone}
+                      onChange={(e) => setTelefone(e.target.value)}
+                    />
+                  </div>
+                </div>
+              </>
+            )}
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-gray-500 uppercase ml-1">E-mail</label>
+              <div className="relative">
+                <Mail className="absolute left-3 top-3.5 text-gray-400" size={20} />
+                <input
+                  type="email"
+                  required
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
             </div>
-          )}
-          
-          <div className="relative">
-            <Mail className="absolute left-3 top-3 text-gray-400" size={20} />
-            <input 
-              type="email" 
-              placeholder="E-mail" 
-              className="w-full pl-10 p-3 border rounded-lg text-black focus:ring-2 focus:ring-blue-900 outline-none" 
-              value={email} 
-              onChange={e => setEmail(e.target.value)} 
-            />
+
+            <div className="space-y-1">
+              <label className="text-xs font-bold text-gray-500 uppercase ml-1">Senha</label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3.5 text-gray-400" size={20} />
+                <input
+                  type="password"
+                  required
+                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  placeholder="******"
+                  value={senha}
+                  onChange={(e) => setSenha(e.target.value)}
+                />
+              </div>
+            </div>
+
+            {error && (
+              <div className="p-3 bg-red-50 text-red-600 text-sm rounded-lg flex items-center gap-2 animate-in fade-in slide-in-from-top-2">
+                <div className="w-1 h-8 bg-red-500 rounded-full"></div>
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-blue-900 text-white font-bold py-3.5 rounded-xl hover:bg-blue-800 transition-colors flex items-center justify-center gap-2 shadow-lg shadow-blue-900/20 disabled:opacity-70 disabled:cursor-not-allowed"
+            >
+              {loading ? <Loader2 className="animate-spin" /> : (
+                <>
+                  {modo === 'login' ? 'Entrar na Plataforma' : 'Criar Conta Grátis'}
+                  <ArrowRight size={20} />
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-8 text-center">
+            <p className="text-gray-600 text-sm">
+              {modo === "login" ? "Ainda não tem conta?" : "Já é nosso aluno?"}
+            </p>
+            <button
+              onClick={alternarModo}
+              className="text-blue-600 font-bold hover:underline mt-1 text-sm"
+            >
+              {modo === "login" ? "Crie sua conta agora" : "Fazer login"}
+            </button>
           </div>
-
-          <div className="relative">
-            <Lock className="absolute left-3 top-3 text-gray-400" size={20} />
-            <input 
-              type="password" 
-              placeholder="Senha" 
-              className="w-full pl-10 p-3 border rounded-lg text-black focus:ring-2 focus:ring-blue-900 outline-none" 
-              value={senha} 
-              onChange={e => setSenha(e.target.value)} 
-            />
-          </div>
-
-          {error && <div className="bg-red-50 text-red-500 text-sm p-3 rounded-lg border border-red-100 flex items-center gap-2">{error}</div>}
-          
-          <button disabled={loading} className="w-full bg-blue-900 text-white py-3 rounded-lg font-bold hover:bg-blue-800 transition-colors disabled:opacity-70 flex justify-center">
-            {loading ? <Loader2 className="animate-spin" /> : (modo === 'login' ? 'Entrar' : 'Cadastrar')}
-          </button>
-        </form>
-
-        <div className="mt-6 text-center pt-4 border-t border-gray-50">
-          <button onClick={alternarModo} className="text-sm text-blue-600 hover:text-blue-800 font-medium">
-            {modo === 'login' ? 'Não tem conta? Cadastre-se' : 'Já tem conta? Faça Login'}
-          </button>
         </div>
       </div>
     </div>

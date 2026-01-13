@@ -106,6 +106,7 @@ export default function App() {
         if (error) throw error;
         await carregarUsuarioCompleto();
       } else {
+        // Removi o telefone daqui também para evitar erro de tipo
         const { data, error } = await supabase.auth.signUp({ 
           email, password: senha, options: { data: { full_name: nome } } 
         });
@@ -188,7 +189,21 @@ export default function App() {
 
   // --- RENDER ---
   if (telaAtual === "login" || telaAtual === "cadastro") {
-    return <AuthForm loading={loading} onSubmit={(e) => handleAuth(e, telaAtual)} error={erroAuth} email={email} setEmail={setEmail} senha={senha} setSenha={setSenha} nome={nome} setNome={setNome} modo={telaAtual} alternarModo={() => setTelaAtual(telaAtual === 'login' ? 'cadastro' : 'login')} />;
+    return (
+      <AuthForm 
+        loading={loading} 
+        onSubmit={(e) => handleAuth(e, telaAtual)} 
+        error={erroAuth} 
+        email={email} 
+        setEmail={setEmail} 
+        senha={senha} 
+        setSenha={setSenha} 
+        nome={nome} 
+        setNome={setNome} 
+        modo={telaAtual} 
+        alternarModo={() => setTelaAtual(telaAtual === 'login' ? 'cadastro' : 'login')} 
+      />
+    );
   }
 
   if (telaAtual === "simulado") {
@@ -233,17 +248,17 @@ export default function App() {
       {telaAtual === "exercicios" && (
         <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
            <div className="mb-6 flex justify-between items-end">
-              <div><h2 className="text-2xl font-bold text-gray-800">Exercícios</h2><p className="text-gray-500">Pratique por tópicos.</p></div>
-              <span className="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-1 rounded-md border border-yellow-200">PREMIUM</span>
+             <div><h2 className="text-2xl font-bold text-gray-800">Exercícios</h2><p className="text-gray-500">Pratique por tópicos.</p></div>
+             <span className="bg-yellow-100 text-yellow-700 text-xs font-bold px-2 py-1 rounded-md border border-yellow-200">PREMIUM</span>
            </div>
            <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-              {TOPICOS_EXERCICIOS.map((topico) => (
-                <div key={topico.id} onClick={() => setModalPremiumOpen(true)} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center gap-3 cursor-pointer hover:shadow-md transition-all relative overflow-hidden group">
-                   <div className={`p-4 rounded-full ${topico.color} mb-1 group-hover:scale-110 transition-transform`}>{topico.icon}</div>
-                   <div><h3 className="font-bold text-gray-800 text-sm leading-tight mb-1">{topico.titulo}</h3><p className="text-xs text-gray-400">{topico.questoes} questões</p></div>
-                   <div className="absolute top-2 right-2 text-gray-300"><Lock size={14} /></div>
-                </div>
-              ))}
+             {TOPICOS_EXERCICIOS.map((topico) => (
+               <div key={topico.id} onClick={() => setModalPremiumOpen(true)} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center gap-3 cursor-pointer hover:shadow-md transition-all relative overflow-hidden group">
+                  <div className={`p-4 rounded-full ${topico.color} mb-1 group-hover:scale-110 transition-transform`}>{topico.icon}</div>
+                  <div><h3 className="font-bold text-gray-800 text-sm leading-tight mb-1">{topico.titulo}</h3><p className="text-xs text-gray-400">{topico.questoes} questões</p></div>
+                  <div className="absolute top-2 right-2 text-gray-300"><Lock size={14} /></div>
+               </div>
+             ))}
            </div>
         </div>
       )}

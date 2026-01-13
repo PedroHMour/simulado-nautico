@@ -110,19 +110,38 @@ export default function App() {
     return () => clearInterval(int);
   }, [cronometroAtivo]);
 
-  // --- FUNÇÕES DE AUTH ---
+  // --- FUNÇÕES DE AUTH (ATUALIZADA) ---
   const handleAuth = async (e: React.FormEvent, tipo: "login" | "cadastro") => {
     e.preventDefault(); setLoading(true); setErroAuth("");
     try {
       if (tipo === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
         if (error) throw error;
+        // O listener do useEffect vai lidar com o resto
       } else {
+        // CADASTRO
         const { data, error } = await supabase.auth.signUp({ 
-          email, password: senha, options: { data: { full_name: nome } } 
+          email, 
+          password: senha, 
+          options: { 
+            data: { full_name: nome },
+            // Garante que o link do email traga o usuário de volta para a Home
+            emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined
+          } 
         });
+
         if (error) throw error;
-        if (data.session) await carregarUsuarioCompleto();
+
+        // VERIFICAÇÃO DE SESSÃO VS CONFIRMAÇÃO
+        if (data.session) {
+          // Se retornou sessão, o Supabase NÃO pediu confirmação (login direto)
+          await carregarUsuarioCompleto();
+        } else if (data.user) {
+          // Se retornou User mas NÃO retornou Sessão, o Supabase PEDIU confirmação
+          alert("Cadastro realizado com sucesso!\n\nUm link de confirmação foi enviado para o seu e-mail. Por favor, verifique sua caixa de entrada (e spam) para ativar sua conta.");
+          setTelaAtual("login"); // Volta para tela de login
+          setSenha(""); // Limpa a senha por segurança
+        }
       }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : "Erro desconhecido";

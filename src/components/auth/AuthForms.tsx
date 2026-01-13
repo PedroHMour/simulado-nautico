@@ -30,13 +30,13 @@ export const AuthForm = ({
   alternarModo,
 }: AuthFormProps) => {
 
-  // Função que chama o Google (JWT automático)
   const handleGoogleLogin = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          // MUDANÇA AQUI: Redireciona para a raiz para capturar o token mais facilmente
+          redirectTo: window.location.origin, 
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',

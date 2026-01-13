@@ -88,7 +88,21 @@ export default function App() {
   };
 
   useEffect(() => {
+    // 1. Tenta carregar usuário logado inicialmente
     carregarUsuarioCompleto();
+
+    // 2. CORREÇÃO AQUI: Adicionado listener para ouvir o retorno do Google
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        // Se detectou login (inclusive vindo do Google), carrega os dados
+        carregarUsuarioCompleto();
+      } else if (event === 'SIGNED_OUT') {
+        setUsuario(null);
+        setTelaAtual("login");
+      }
+    });
+
+    return () => subscription.unsubscribe();
   }, []);
 
   useEffect(() => {
@@ -104,9 +118,8 @@ export default function App() {
       if (tipo === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
         if (error) throw error;
-        await carregarUsuarioCompleto();
+        // O listener do useEffect vai pegar o login, não precisa chamar carregarUsuarioCompleto aqui obrigatoriamente, mas mal não faz
       } else {
-        // Removi o telefone daqui também para evitar erro de tipo
         const { data, error } = await supabase.auth.signUp({ 
           email, password: senha, options: { data: { full_name: nome } } 
         });
@@ -121,8 +134,7 @@ export default function App() {
 
   const handleLogout = async () => { 
     await supabase.auth.signOut(); 
-    setUsuario(null); 
-    setTelaAtual("login"); 
+    // O listener do useEffect vai lidar com a limpeza de estado
   };
 
   // --- LÓGICA SIMULADO ---

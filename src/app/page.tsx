@@ -14,9 +14,10 @@ import { QuizRunner } from "@/components/simulado/QuizRunner";
 import { ResultView } from "@/components/simulado/ResultView";
 import { ModalDetalhes, ModalPremium } from "@/components/simulado/Modals";
 import { SchoolModal } from "@/components/school/SchoolModal";
+import { AdminQuestions } from "@/components/admin/AdminQuestions"; // NOVO COMPONENTE DE ADMIN
 
 // Ícones e Dados
-import { Anchor, Ship, Zap, Compass, Target, LifeBuoy, Flame, AlertTriangle, Lock } from "lucide-react";
+import { Anchor, Ship, Zap, Compass, Target, LifeBuoy, Flame, AlertTriangle, Lock, Settings } from "lucide-react";
 
 // DADOS ESTÁTICOS
 const SIMULADOS_PRINCIPAIS: SimuladoCardType[] = [
@@ -37,7 +38,8 @@ const TOPICOS_EXERCICIOS = [
 
 export default function App() {
   // --- ESTADOS GLOBAIS ---
-  const [telaAtual, setTelaAtual] = useState<TelaTipo>("login");
+  // Adicionei 'admin_questoes' ao tipo de tela na sua mente (no TypeScript pode precisar ajustar o tipo TelaTipo se for restrito)
+  const [telaAtual, setTelaAtual] = useState<TelaTipo | "admin_questoes">("login");
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingSimulado, setLoadingSimulado] = useState(false);
@@ -110,7 +112,7 @@ export default function App() {
     return () => clearInterval(int);
   }, [cronometroAtivo]);
 
-  // --- FUNÇÕES DE AUTH (ATUALIZADA) ---
+  // --- FUNÇÕES DE AUTH (BLINDADA) ---
   const handleAuth = async (e: React.FormEvent, tipo: "login" | "cadastro") => {
     e.preventDefault(); setLoading(true); setErroAuth("");
     try {
@@ -125,22 +127,27 @@ export default function App() {
           password: senha, 
           options: { 
             data: { full_name: nome },
-            // Garante que o link do email traga o usuário de volta para a Home
             emailRedirectTo: typeof window !== 'undefined' ? window.location.origin : undefined
           } 
         });
 
         if (error) throw error;
 
-        // VERIFICAÇÃO DE SESSÃO VS CONFIRMAÇÃO
+        // TRAVA MANUAL DE SEGURANÇA PARA CADASTRO VIA EMAIL
         if (data.session) {
-          // Se retornou sessão, o Supabase NÃO pediu confirmação (login direto)
-          await carregarUsuarioCompleto();
+            // Se entrou direto e NÃO tem data de confirmação E o provider for email
+            if (!data.user?.email_confirmed_at && data.session.user.app_metadata.provider === 'email') {
+                await supabase.auth.signOut();
+                alert("Atenção: Por favor, verifique seu e-mail para ativar a conta antes de entrar.");
+                setTelaAtual("login");
+                return;
+            }
+            await carregarUsuarioCompleto();
         } else if (data.user) {
-          // Se retornou User mas NÃO retornou Sessão, o Supabase PEDIU confirmação
-          alert("Cadastro realizado com sucesso!\n\nUm link de confirmação foi enviado para o seu e-mail. Por favor, verifique sua caixa de entrada (e spam) para ativar sua conta.");
-          setTelaAtual("login"); // Volta para tela de login
-          setSenha(""); // Limpa a senha por segurança
+            // Se não veio sessão, funcionou o bloqueio do Supabase
+            alert("Cadastro realizado! Um link de confirmação foi enviado para o seu e-mail. Verifique sua caixa de entrada.");
+            setTelaAtual("login");
+            setSenha("");
         }
       }
     } catch (err: unknown) {
@@ -165,7 +172,7 @@ export default function App() {
         .limit(simuladoSelecionado.questoes);
 
       if (error) throw error;
-      if (!data || data.length === 0) { alert(`Banco vazio para ${simuladoSelecionado.titulo}.`); return; }
+      if (!data || data.length === 0) { alert(`Banco vazio para ${simuladoSelecionado.titulo}. Cadastre questões no Painel da Escola.`); return; }
 
       setQuestions(data.sort(() => Math.random() - 0.5));
       setModalDetalhesOpen(false);
@@ -243,12 +250,30 @@ export default function App() {
     return <ResultView acertos={acertos} total={questions.length} tempo={tempo} onRestart={() => setTelaAtual("home")} />;
   }
 
+  // --- RENDER DA NOVA TELA DE ADMIN ---
+  if (telaAtual === "admin_questoes") {
+    return (
+      <div className="min-h-screen bg-slate-50 pb-20 font-sans">
+         <Navbar 
+             usuario={usuario} 
+             telaAtual={telaAtual as TelaTipo} 
+             setTelaAtual={(t) => setTelaAtual(t)} 
+             handleLogout={handleLogout} 
+             menuMobileAberto={menuMobileAberto} 
+             setMenuMobileAberto={setMenuMobileAberto}
+             onOpenSchool={() => setSchoolModalOpen(true)}
+         />
+         <AdminQuestions />
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-24 md:pb-0">
       <Navbar 
         usuario={usuario} 
-        telaAtual={telaAtual} 
-        setTelaAtual={setTelaAtual} 
+        telaAtual={telaAtual as TelaTipo} 
+        setTelaAtual={(t) => setTelaAtual(t)} 
         handleLogout={handleLogout} 
         menuMobileAberto={menuMobileAberto} 
         setMenuMobileAberto={setMenuMobileAberto}
@@ -268,6 +293,22 @@ export default function App() {
 
       {telaAtual === "home" && (
         <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
+           
+           {/* BOTÃO DE DEMONSTRAÇÃO DO ADMIN DA ESCOLA (PROVISÓRIO PARA APRESENTAÇÃO) */}
+           <div className="mb-6 bg-blue-900 rounded-xl p-4 flex items-center justify-between text-white shadow-lg">
+              <div>
+                  <h3 className="font-bold text-lg">Área da Escola (Demo)</h3>
+                  <p className="text-blue-200 text-sm">Cadastre perguntas e gerencie o banco.</p>
+              </div>
+              <button 
+                onClick={() => setTelaAtual("admin_questoes")}
+                className="bg-white text-blue-900 px-4 py-2 rounded-lg font-bold hover:bg-blue-50 transition-colors flex items-center gap-2"
+              >
+                <Settings size={18} />
+                Acessar Painel
+              </button>
+           </div>
+           
            <div className="mb-6"><h2 className="text-2xl font-bold text-gray-800">Categorias Oficiais</h2><p className="text-gray-500">Selecione sua habilitação.</p></div>
            <SimuladoList simulados={SIMULADOS_PRINCIPAIS} onSelect={(s) => { setSimuladoSelecionado(s); setModalDetalhesOpen(true); }} />
         </div>
@@ -292,7 +333,7 @@ export default function App() {
       )}
 
       {telaAtual === "estatisticas" && <StatsView />}
-      <MobileNav telaAtual={telaAtual} setTelaAtual={setTelaAtual} />
+      <MobileNav telaAtual={telaAtual as TelaTipo} setTelaAtual={(t) => setTelaAtual(t)} />
     </div>
   );
 }

@@ -146,6 +146,7 @@ export const AdminQuestions = () => {
                     <option value="ARA">Arrais Amador (ARA)</option>
                     <option value="MTA">Motonauta (MTA)</option>
                     <option value="MSA">Mestre Amador (MSA)</option>
+                    <option value="CPA">Capitão Amador (CPA)</option>
                 </select>
             </div>
             <div>

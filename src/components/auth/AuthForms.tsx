@@ -1,6 +1,6 @@
-import React from "react";
+import React, { useState } from "react";
 import Image from "next/image";
-import { Loader2, Mail, Lock, User, ArrowRight } from "lucide-react";
+import { Loader2, Mail, Lock, User, ArrowRight, Eye, EyeOff } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 interface AuthFormProps {
@@ -30,6 +30,8 @@ export const AuthForm = ({
   modo,
   alternarModo,
 }: AuthFormProps) => {
+  // Estado local para controlar visibilidade da senha
+  const [mostrarSenha, setMostrarSenha] = useState(false);
 
   const handleGoogleLogin = async () => {
     try {
@@ -95,7 +97,6 @@ export const AuthForm = ({
                   <input
                     type="text"
                     required
-                    // AQUI ESTÁ A CORREÇÃO DE COR E FUNDO
                     className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                     placeholder="Seu nome completo"
                     value={nome}
@@ -112,7 +113,6 @@ export const AuthForm = ({
                 <input
                   type="email"
                   required
-                  // AQUI TAMBÉM
                   className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   placeholder="seu@email.com"
                   value={email}
@@ -126,14 +126,23 @@ export const AuthForm = ({
               <div className="relative">
                 <Lock className="absolute left-3 top-3.5 text-gray-400" size={20} />
                 <input
-                  type="password"
+                  // AQUI ESTÁ A MÁGICA: ALTERNA ENTRE PASSWORD E TEXT
+                  type={mostrarSenha ? "text" : "password"}
                   required
-                  // E AQUI
-                  className="w-full pl-10 pr-4 py-3 bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  // Aumentei o padding right (pr-12) para o texto não bater no olho
+                  className="w-full pl-10 pr-12 py-3 bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   placeholder="******"
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
                 />
+                {/* BOTÃO DO OLHINHO */}
+                <button
+                  type="button"
+                  onClick={() => setMostrarSenha(!mostrarSenha)}
+                  className="absolute right-3 top-3 text-gray-400 hover:text-blue-600 transition-colors p-1"
+                >
+                  {mostrarSenha ? <EyeOff size={20} /> : <Eye size={20} />}
+                </button>
               </div>
             </div>
 

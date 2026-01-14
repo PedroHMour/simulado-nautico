@@ -8,26 +8,26 @@ interface AdminStudentsProps {
 }
 
 export const AdminStudents = ({ usuario }: AdminStudentsProps) => {
-  const [students, setStudents] = useState<any[]>([]);
+  const [students, setStudents] = useState<Usuario[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchStudents();
-  }, []);
+    const fetchStudents = async () => {
+        if (!usuario.school_id) return;
+        
+        setLoading(true);
+        const { data } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('school_id', usuario.school_id)
+          .order('created_at', { ascending: false });
+        
+        if (data) setStudents(data as unknown as Usuario[]);
+        setLoading(false);
+      };
 
-  const fetchStudents = async () => {
-    if (!usuario.school_id) return;
-    
-    setLoading(true);
-    const { data } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('school_id', usuario.school_id)
-      .order('created_at', { ascending: false });
-    
-    if (data) setStudents(data);
-    setLoading(false);
-  };
+    fetchStudents();
+  }, [usuario.school_id]);
 
   return (
     <div className="max-w-5xl mx-auto p-6 animate-in fade-in">
@@ -56,7 +56,7 @@ export const AdminStudents = ({ usuario }: AdminStudentsProps) => {
                                     <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center">
                                         <User size={16} />
                                     </div>
-                                    <span className="font-bold text-gray-800">{aluno.full_name || "Sem nome"}</span>
+                                    <span className="font-bold text-gray-800">{aluno.user_metadata?.full_name || "Sem nome"}</span>
                                 </td>
                                 <td className="p-4 text-sm text-gray-600">
                                     <div className="flex items-center gap-2">
@@ -64,7 +64,8 @@ export const AdminStudents = ({ usuario }: AdminStudentsProps) => {
                                     </div>
                                 </td>
                                 <td className="p-4 text-sm text-gray-500">
-                                    {new Date(aluno.created_at).toLocaleDateString('pt-BR')}
+                                    {/* CORREÇÃO: Sem comentário de ignore aqui, pois o tipo agora existe */}
+                                    {aluno.created_at ? new Date(aluno.created_at).toLocaleDateString('pt-BR') : '-'}
                                 </td>
                                 <td className="p-4 text-right">
                                     <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full">Ativo</span>

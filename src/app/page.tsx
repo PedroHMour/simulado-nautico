@@ -18,7 +18,7 @@ import { AdminQuestions } from "@/components/admin/AdminQuestions";
 import { AdminStudents } from "@/components/admin/AdminStudents";
 
 // Ícones e Dados
-import { Anchor, Ship, Zap, Compass, Target, LifeBuoy, Flame, AlertTriangle, Lock, Settings, BookOpen, ArrowRight, LogOut } from "lucide-react";
+import { Anchor, Ship, Zap, Compass, Target, LifeBuoy, Flame, AlertTriangle, Lock, BookOpen, ArrowRight, LogOut } from "lucide-react";
 
 // DADOS ESTÁTICOS
 const SIMULADOS_PRINCIPAIS: SimuladoCardType[] = [
@@ -148,8 +148,9 @@ export default function App() {
     if (!simuladoSelecionado) return;
     setLoadingSimulado(true);
     try {
+      // CORREÇÃO: Busca direta das colunas (*) sem tentar acessar answers aninhadas
       const { data, error } = await supabase.from('questions')
-        .select(`id, text, image_url, explanation_video_url, answers ( id, text, is_correct )`)
+        .select('*')
         .eq('category', simuladoSelecionado.db_category)
         .eq('active', true)
         .limit(simuladoSelecionado.questoes);
@@ -157,7 +158,8 @@ export default function App() {
       if (error) throw error;
       if (!data || data.length === 0) { alert(`Banco vazio para ${simuladoSelecionado.titulo}.`); return; }
 
-      setQuestions(data.sort(() => Math.random() - 0.5));
+      // Cast para QuestionDB[] porque o Supabase pode não inferir as colunas opcionais corretamente
+      setQuestions(data.sort(() => Math.random() - 0.5) as QuestionDB[]);
       setModalDetalhesOpen(false);
       setTelaAtual("simulado");
       setIndicePergunta(0);
@@ -177,9 +179,14 @@ export default function App() {
   };
 
   const calcularAcertos = () => {
+    // Mapa de índice para letra: 0=A, 1=B, 2=C, 3=D, 4=E
+    const mapLetras = ['A', 'B', 'C', 'D', 'E'];
+    
     return respostasUsuario.reduce((acc, respIdx, qIdx) => {
       const questao = questions[qIdx];
-      return (questao?.answers?.[respIdx]?.is_correct) ? acc + 1 : acc;
+      // Verifica se a letra correspondente ao índice escolhido é igual ao gabarito
+      const letraEscolhida = mapLetras[respIdx];
+      return (questao.correct_answer === letraEscolhida) ? acc + 1 : acc;
     }, 0);
   };
 
@@ -353,7 +360,7 @@ export default function App() {
       )}
 
       {telaAtual === "estatisticas" && <StatsView />}
-      <MobileNav telaAtual={telaAtual} setTelaAtual={(t) => setTelaAtual(t)} />
+      <MobileNav telaAtual={telaAtual} setTelaAtual={setTelaAtual} />
     </div>
   );
 }

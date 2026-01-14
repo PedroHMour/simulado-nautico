@@ -1,7 +1,7 @@
 "use client";
 import React from "react";
-import Image from "next/image"; // Importação adicionada para a Logo
-import { Anchor, Phone, CheckCircle, User, LogOut, Menu, School } from "lucide-react";
+import Image from "next/image";
+import { Phone, CheckCircle, User, LogOut, Menu, School } from "lucide-react"; // Anchor removido
 import { TelaTipo, Usuario } from "@/types";
 
 interface NavbarProps {
@@ -24,18 +24,15 @@ export const Navbar = ({
   onOpenSchool 
 }: NavbarProps) => {
 
-  // --- LÓGICA DE PERSONALIZAÇÃO ---
-  // Se tiver escola, usa a cor dela. Se não, usa o Azul Padrão (#1e3a8a)
   const themeColor = usuario?.school?.primary_color || "#1e3a8a";
   const schoolName = usuario?.school?.name;
   const logoUrl = usuario?.school?.logo_url;
 
   return (
     <>
-      {/* Barra de Topo (Suporte) - Fica com a cor da escola (mais escura) */}
       <div 
         className="text-white text-xs py-2 px-4 hidden md:flex justify-between items-center transition-colors duration-500"
-        style={{ backgroundColor: themeColor, filter: 'brightness(0.8)' }} // Escurece um pouco a cor principal
+        style={{ backgroundColor: themeColor, filter: 'brightness(0.8)' }} 
       >
         <span className="font-bold opacity-90">{schoolName ? `Portal do Aluno - ${schoolName}` : "Central do Aluno Exclusiva"}</span>
         <div className="flex gap-4 opacity-80">
@@ -48,16 +45,12 @@ export const Navbar = ({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16 md:h-20">
             
-            {/* LOGO DINÂMICA */}
             <div className="flex items-center gap-3 cursor-pointer" onClick={() => setTelaAtual("home")}>
               
-              {/* LÓGICA DA IMAGEM: */}
               {logoUrl ? (
-                // CASO 1: É aluno de escola parceira -> Mostra logo da escola (URL externa)
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={logoUrl} alt="Logo Escola" className="h-12 w-auto object-contain" />
               ) : (
-                // CASO 2: É aluno direto -> Mostra a Logo Oficial NáuticaPro (/logo.png)
                 <div className="relative h-12 w-12 flex items-center justify-center">
                    <Image 
                      src="/logo.png" 
@@ -71,10 +64,9 @@ export const Navbar = ({
               
               <div className="leading-tight">
                 {schoolName ? (
-                   // Nome da Escola Personalizada
                    <div>
                      <h1 className="text-xl font-bold uppercase" style={{ color: themeColor }}>
-                       {schoolName.split(' ')[0]} {/* Pega só a primeira palavra pra destaque */}
+                       {schoolName.split(' ')[0]} 
                        <span className="text-gray-600 text-sm normal-case ml-1">
                          {schoolName.split(' ').slice(1).join(' ')}
                        </span>
@@ -82,7 +74,6 @@ export const Navbar = ({
                      <p className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">Parceiro Oficial</p>
                    </div>
                 ) : (
-                   // Padrão do Sistema
                    <div>
                      <h1 className="text-xl font-bold text-blue-900">NÁUTICA<span className="text-blue-500">PRO</span></h1>
                      <p className="text-[10px] text-gray-500 font-medium tracking-widest uppercase">Sistema de Ensino</p>
@@ -91,7 +82,6 @@ export const Navbar = ({
               </div>
             </div>
 
-            {/* Menu Desktop */}
             <nav className="hidden md:flex items-center gap-8">
               <button onClick={() => setTelaAtual("home")} className={`font-medium transition-colors ${telaAtual === 'home' ? 'text-gray-900 font-bold' : 'text-gray-500 hover:text-gray-900'}`}>Simulados</button>
               <button onClick={() => setTelaAtual("exercicios")} className={`font-medium transition-colors ${telaAtual === 'exercicios' ? 'text-gray-900 font-bold' : 'text-gray-500 hover:text-gray-900'}`}>Exercícios</button>
@@ -99,14 +89,13 @@ export const Navbar = ({
               
               <div className="h-6 w-px bg-gray-200 mx-2"></div>
 
-              {/* Botão da Escola (B2B) */}
               <button 
                 onClick={onOpenSchool} 
                 className={`flex items-center gap-2 text-sm font-bold px-3 py-1.5 rounded-full transition-all border`}
                 style={usuario?.school ? { 
                   color: themeColor, 
                   borderColor: themeColor,
-                  backgroundColor: `${themeColor}15` // 15 é opacidade hex
+                  backgroundColor: `${themeColor}15` 
                 } : {
                   color: '#6b7280',
                   borderColor: 'transparent'
@@ -125,7 +114,6 @@ export const Navbar = ({
                 )}
               </button>
 
-              {/* Perfil Usuário */}
               <div className="flex items-center gap-3 cursor-pointer group relative">
                 <div className="text-right">
                   <p className="text-sm font-bold text-gray-800">{usuario?.user_metadata?.full_name?.split(' ')[0] || "Aluno"}</p>
@@ -138,21 +126,18 @@ export const Navbar = ({
                   <User size={20} />
                 </div>
                 
-                {/* Dropdown Sair */}
                 <button onClick={handleLogout} className="absolute -bottom-10 right-0 w-24 bg-white text-red-600 text-sm font-medium py-2 px-4 shadow-lg rounded-lg border border-gray-100 hidden group-hover:flex items-center gap-2">
                   <LogOut size={14} /> Sair
                 </button>
               </div>
             </nav>
 
-            {/* Botão Mobile Toggle */}
             <button className="md:hidden text-gray-600 p-2" onClick={() => setMenuMobileAberto(!menuMobileAberto)}>
               <Menu size={28} />
             </button>
           </div>
         </div>
 
-        {/* Menu Mobile Expandido */}
         {menuMobileAberto && (
           <div className="md:hidden bg-white border-t border-gray-100 p-4 space-y-4 shadow-lg absolute w-full z-50">
             <button onClick={() => { setTelaAtual("home"); setMenuMobileAberto(false); }} className="block w-full text-left font-bold text-gray-800">Simulados</button>

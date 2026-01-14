@@ -30,7 +30,6 @@ export const AuthForm = ({
   modo,
   alternarModo,
 }: AuthFormProps) => {
-  // Estado local para controlar visibilidade da senha
   const [mostrarSenha, setMostrarSenha] = useState(false);
 
   const handleGoogleLogin = async () => {
@@ -126,16 +125,13 @@ export const AuthForm = ({
               <div className="relative">
                 <Lock className="absolute left-3 top-3.5 text-gray-400" size={20} />
                 <input
-                  // AQUI ESTÁ A MÁGICA: ALTERNA ENTRE PASSWORD E TEXT
                   type={mostrarSenha ? "text" : "password"}
                   required
-                  // Aumentei o padding right (pr-12) para o texto não bater no olho
                   className="w-full pl-10 pr-12 py-3 bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
                   placeholder="******"
                   value={senha}
                   onChange={(e) => setSenha(e.target.value)}
                 />
-                {/* BOTÃO DO OLHINHO */}
                 <button
                   type="button"
                   onClick={() => setMostrarSenha(!mostrarSenha)}

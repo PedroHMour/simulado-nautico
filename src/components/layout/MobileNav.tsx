@@ -1,30 +1,80 @@
 import React from "react";
-import { Anchor, Target, BarChart3 } from "lucide-react";
+import { Home, Anchor, BookOpen, BarChart2, User } from "lucide-react";
 import { TelaTipo } from "@/types";
 
 interface MobileNavProps {
-  telaAtual: TelaTipo;
-  setTelaAtual: (t: TelaTipo) => void;
+  // Atualiza a tipagem para incluir as novas telas
+  telaAtual: TelaTipo | "apostilas" | "admin_questoes" | "admin_alunos" | "perfil";
+  setTelaAtual: (t: any) => void;
 }
 
 export const MobileNav = ({ telaAtual, setTelaAtual }: MobileNavProps) => {
-  const btnClass = (active: boolean) => 
-    `flex flex-col items-center p-2 transition-colors ${active ? 'text-blue-900' : 'text-gray-400'}`;
+  
+  const getIconClass = (nomeTela: string) => 
+    telaAtual === nomeTela 
+      ? "text-blue-900" 
+      : "text-gray-400 hover:text-blue-600";
+
+  const getBgClass = (nomeTela: string) =>
+    telaAtual === nomeTela
+      ? "bg-blue-50" 
+      : "bg-transparent";
 
   return (
-    <nav className="md:hidden fixed bottom-0 w-full bg-white border-t border-gray-200 py-2 px-6 flex justify-between items-center z-40 pb-safe shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.05)]">
-      <button onClick={() => setTelaAtual("home")} className={btnClass(telaAtual === 'home')}>
-        <Anchor size={24} /> 
-        <span className="text-[10px] font-bold mt-1">Simulados</span>
-      </button>
-      <button onClick={() => setTelaAtual("exercicios")} className={btnClass(telaAtual === 'exercicios')}>
-        <Target size={24} /> 
-        <span className="text-[10px] font-medium mt-1">Exercícios</span>
-      </button>
-      <button onClick={() => setTelaAtual("estatisticas")} className={btnClass(telaAtual === 'estatisticas')}>
-        <BarChart3 size={24} /> 
-        <span className="text-[10px] font-medium mt-1">Estatísticas</span>
-      </button>
-    </nav>
+    <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 shadow-lg z-50 pb-safe">
+      <div className="flex justify-around items-center h-16 px-2">
+        
+        <button 
+          onClick={() => setTelaAtual("home")} 
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${getIconClass("home")}`}
+        >
+          <div className={`p-1.5 rounded-xl transition-all ${getBgClass("home")}`}>
+            <Home size={22} strokeWidth={2.5} />
+          </div>
+          <span className="text-[10px] font-bold">Início</span>
+        </button>
+
+        <button 
+          onClick={() => setTelaAtual("exercicios")} 
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${getIconClass("exercicios")}`}
+        >
+          <div className={`p-1.5 rounded-xl transition-all ${getBgClass("exercicios")}`}>
+            <Anchor size={22} strokeWidth={2.5} />
+          </div>
+          <span className="text-[10px] font-bold">Treino</span>
+        </button>
+
+        <button 
+          onClick={() => setTelaAtual("apostilas")} 
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${getIconClass("apostilas")}`}
+        >
+          <div className={`p-1.5 rounded-xl transition-all ${getBgClass("apostilas")}`}>
+            <BookOpen size={22} strokeWidth={2.5} />
+          </div>
+          <span className="text-[10px] font-bold">Apostilas</span>
+        </button>
+
+        <button 
+          onClick={() => setTelaAtual("estatisticas")} 
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${getIconClass("estatisticas")}`}
+        >
+          <div className={`p-1.5 rounded-xl transition-all ${getBgClass("estatisticas")}`}>
+            <BarChart2 size={22} strokeWidth={2.5} />
+          </div>
+          <span className="text-[10px] font-bold">Desempenho</span>
+        </button>
+
+        <button 
+          onClick={() => setTelaAtual("perfil")} 
+          className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${getIconClass("perfil")}`}
+        >
+          <div className={`p-1.5 rounded-xl transition-all ${getBgClass("perfil")}`}>
+            <User size={22} strokeWidth={2.5} />
+          </div>
+          <span className="text-[10px] font-bold">Perfil</span>
+        </button>
+
+      </div>
+    </div>
   );
 };

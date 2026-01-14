@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import { TelaTipo, Usuario, QuestionDB, SimuladoCardType } from "@/types";
 
-// Importação dos Componentes
+// Componentes
 import { Navbar } from "@/components/layout/Navbar";
 import { MobileNav } from "@/components/layout/MobileNav";
 import { AuthForm } from "@/components/auth/AuthForms";
@@ -14,10 +14,11 @@ import { QuizRunner } from "@/components/simulado/QuizRunner";
 import { ResultView } from "@/components/simulado/ResultView";
 import { ModalDetalhes, ModalPremium } from "@/components/simulado/Modals";
 import { SchoolModal } from "@/components/school/SchoolModal";
-import { AdminQuestions } from "@/components/admin/AdminQuestions"; // NOVO COMPONENTE DE ADMIN
+import { AdminQuestions } from "@/components/admin/AdminQuestions";
+import { AdminStudents } from "@/components/admin/AdminStudents";
 
 // Ícones e Dados
-import { Anchor, Ship, Zap, Compass, Target, LifeBuoy, Flame, AlertTriangle, Lock, Settings } from "lucide-react";
+import { Anchor, Ship, Zap, Compass, Target, LifeBuoy, Flame, AlertTriangle, Lock, Settings, BookOpen, ArrowRight, LogOut } from "lucide-react";
 
 // DADOS ESTÁTICOS
 const SIMULADOS_PRINCIPAIS: SimuladoCardType[] = [
@@ -37,34 +38,28 @@ const TOPICOS_EXERCICIOS = [
 ];
 
 export default function App() {
-  // --- ESTADOS GLOBAIS ---
-  // Adicionei 'admin_questoes' ao tipo de tela na sua mente (no TypeScript pode precisar ajustar o tipo TelaTipo se for restrito)
-  const [telaAtual, setTelaAtual] = useState<TelaTipo | "admin_questoes">("login");
+  const [telaAtual, setTelaAtual] = useState<TelaTipo | "admin_questoes" | "admin_alunos" | "apostilas" | "perfil">("login");
   const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingSimulado, setLoadingSimulado] = useState(false);
   
-  // Estados de Modais
   const [modalDetalhesOpen, setModalDetalhesOpen] = useState(false);
   const [simuladoSelecionado, setSimuladoSelecionado] = useState<SimuladoCardType | null>(null);
   const [modalPremiumOpen, setModalPremiumOpen] = useState(false);
   const [schoolModalOpen, setSchoolModalOpen] = useState(false);
 
-  // Estados de Autenticação
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [nome, setNome] = useState("");
   const [erroAuth, setErroAuth] = useState("");
   const [usuario, setUsuario] = useState<Usuario | null>(null);
 
-  // Estados do Simulado
   const [questions, setQuestions] = useState<QuestionDB[]>([]);
   const [indicePergunta, setIndicePergunta] = useState(0);
   const [respostasUsuario, setRespostasUsuario] = useState<number[]>([]);
   const [tempo, setTempo] = useState(0);
   const [cronometroAtivo, setCronometroAtivo] = useState(false);
 
-  // --- EFEITOS ---
   const carregarUsuarioCompleto = async () => {
     const { data: { session } } = await supabase.auth.getSession();
     if (session) {
@@ -90,10 +85,7 @@ export default function App() {
   };
 
   useEffect(() => {
-    // 1. Tenta carregar usuário logado inicialmente
     carregarUsuarioCompleto();
-
-    // 2. Listener para Login Google (e outros)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_IN' && session) {
         carregarUsuarioCompleto();
@@ -102,7 +94,6 @@ export default function App() {
         setTelaAtual("login");
       }
     });
-
     return () => subscription.unsubscribe();
   }, []);
 
@@ -112,16 +103,13 @@ export default function App() {
     return () => clearInterval(int);
   }, [cronometroAtivo]);
 
-  // --- FUNÇÕES DE AUTH (BLINDADA) ---
   const handleAuth = async (e: React.FormEvent, tipo: "login" | "cadastro") => {
     e.preventDefault(); setLoading(true); setErroAuth("");
     try {
       if (tipo === 'login') {
         const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
         if (error) throw error;
-        // O listener do useEffect vai lidar com o resto
       } else {
-        // CADASTRO
         const { data, error } = await supabase.auth.signUp({ 
           email, 
           password: senha, 
@@ -132,10 +120,7 @@ export default function App() {
         });
 
         if (error) throw error;
-
-        // TRAVA MANUAL DE SEGURANÇA PARA CADASTRO VIA EMAIL
         if (data.session) {
-            // Se entrou direto e NÃO tem data de confirmação E o provider for email
             if (!data.user?.email_confirmed_at && data.session.user.app_metadata.provider === 'email') {
                 await supabase.auth.signOut();
                 alert("Atenção: Por favor, verifique seu e-mail para ativar a conta antes de entrar.");
@@ -144,8 +129,7 @@ export default function App() {
             }
             await carregarUsuarioCompleto();
         } else if (data.user) {
-            // Se não veio sessão, funcionou o bloqueio do Supabase
-            alert("Cadastro realizado! Um link de confirmação foi enviado para o seu e-mail. Verifique sua caixa de entrada.");
+            alert("Cadastro realizado! Um link de confirmação foi enviado para o seu e-mail.");
             setTelaAtual("login");
             setSenha("");
         }
@@ -160,7 +144,6 @@ export default function App() {
     await supabase.auth.signOut(); 
   };
 
-  // --- LÓGICA SIMULADO ---
   const iniciarSimuladoReal = async () => {
     if (!simuladoSelecionado) return;
     setLoadingSimulado(true);
@@ -172,7 +155,7 @@ export default function App() {
         .limit(simuladoSelecionado.questoes);
 
       if (error) throw error;
-      if (!data || data.length === 0) { alert(`Banco vazio para ${simuladoSelecionado.titulo}. Cadastre questões no Painel da Escola.`); return; }
+      if (!data || data.length === 0) { alert(`Banco vazio para ${simuladoSelecionado.titulo}.`); return; }
 
       setQuestions(data.sort(() => Math.random() - 0.5));
       setModalDetalhesOpen(false);
@@ -222,7 +205,6 @@ export default function App() {
     else finalizarSimulado(); 
   };
 
-  // --- RENDER ---
   if (telaAtual === "login" || telaAtual === "cadastro") {
     return (
       <AuthForm 
@@ -250,63 +232,101 @@ export default function App() {
     return <ResultView acertos={acertos} total={questions.length} tempo={tempo} onRestart={() => setTelaAtual("home")} />;
   }
 
-  // --- RENDER DA NOVA TELA DE ADMIN ---
+  // --- ADMINISTRAÇÃO ---
   if (telaAtual === "admin_questoes") {
     return (
       <div className="min-h-screen bg-slate-50 pb-20 font-sans">
-         <Navbar 
-             usuario={usuario} 
-             telaAtual={telaAtual as TelaTipo} 
-             setTelaAtual={(t) => setTelaAtual(t)} 
-             handleLogout={handleLogout} 
-             menuMobileAberto={menuMobileAberto} 
-             setMenuMobileAberto={setMenuMobileAberto}
-             onOpenSchool={() => setSchoolModalOpen(true)}
-         />
+         <Navbar usuario={usuario} telaAtual={telaAtual as TelaTipo} setTelaAtual={(t) => setTelaAtual(t)} handleLogout={handleLogout} menuMobileAberto={menuMobileAberto} setMenuMobileAberto={setMenuMobileAberto} onOpenSchool={() => setSchoolModalOpen(true)} />
          <AdminQuestions />
+      </div>
+    );
+  }
+
+  if (telaAtual === "admin_alunos") {
+    return (
+      <div className="min-h-screen bg-slate-50 pb-20 font-sans">
+         <Navbar usuario={usuario} telaAtual={telaAtual as TelaTipo} setTelaAtual={(t) => setTelaAtual(t)} handleLogout={handleLogout} menuMobileAberto={menuMobileAberto} setMenuMobileAberto={setMenuMobileAberto} onOpenSchool={() => setSchoolModalOpen(true)} />
+         {usuario && <AdminStudents usuario={usuario} />}
+      </div>
+    );
+  }
+
+  // --- TELAS DO MENU MOBILE ---
+  if (telaAtual === "apostilas") {
+    return (
+      <div className="min-h-screen bg-slate-50 pb-24 font-sans">
+         <Navbar usuario={usuario} telaAtual={telaAtual as TelaTipo} setTelaAtual={(t) => setTelaAtual(t)} handleLogout={handleLogout} menuMobileAberto={menuMobileAberto} setMenuMobileAberto={setMenuMobileAberto} onOpenSchool={() => setSchoolModalOpen(true)} />
+         <div className="max-w-4xl mx-auto p-6">
+            <h1 className="text-2xl font-bold text-blue-900 mb-4">Material Didático</h1>
+            <div className="bg-white p-8 rounded-xl shadow-sm text-center border border-gray-100">
+                <div className="w-16 h-16 bg-blue-50 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <BookOpen size={32} />
+                </div>
+                <h3 className="font-bold text-gray-800">Apostilas em PDF</h3>
+                <p className="text-gray-500 mt-2">O material de estudo será disponibilizado pela sua escola aqui.</p>
+                <button className="mt-6 bg-blue-900 text-white px-6 py-2 rounded-lg font-bold hover:bg-blue-800 transition-colors">
+                    Baixar Apostila (Demo)
+                </button>
+            </div>
+         </div>
+         <MobileNav telaAtual={telaAtual} setTelaAtual={setTelaAtual} />
+      </div>
+    );
+  }
+
+  if (telaAtual === "perfil") {
+    return (
+      <div className="min-h-screen bg-slate-50 pb-24 font-sans">
+         <Navbar usuario={usuario} telaAtual={telaAtual as TelaTipo} setTelaAtual={(t) => setTelaAtual(t)} handleLogout={handleLogout} menuMobileAberto={menuMobileAberto} setMenuMobileAberto={setMenuMobileAberto} onOpenSchool={() => setSchoolModalOpen(true)} />
+         <div className="max-w-md mx-auto p-6">
+            <h1 className="text-2xl font-bold text-blue-900 mb-6">Meu Perfil</h1>
+            
+            <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 flex items-center gap-4">
+                <div className="w-16 h-16 bg-blue-900 text-white rounded-full flex items-center justify-center text-xl font-bold">
+                    {usuario?.user_metadata?.full_name?.charAt(0) || "U"}
+                </div>
+                <div>
+                    <h2 className="font-bold text-lg text-gray-800">{usuario?.user_metadata?.full_name || "Aluno"}</h2>
+                    <p className="text-sm text-gray-500">{usuario?.email}</p>
+                    <span className="text-xs font-bold text-green-600 bg-green-50 px-2 py-0.5 rounded-full mt-1 inline-block">Conta Ativa</span>
+                </div>
+            </div>
+
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                <button className="w-full text-left p-4 border-b border-gray-50 hover:bg-gray-50 flex justify-between items-center text-gray-700">
+                    Editar Dados <ArrowRight size={16} className="text-gray-400"/>
+                </button>
+                <button onClick={handleLogout} className="w-full text-left p-4 hover:bg-red-50 flex justify-between items-center text-red-600 font-bold">
+                    Sair da Conta <LogOut size={16} />
+                </button>
+            </div>
+         </div>
+         <MobileNav telaAtual={telaAtual} setTelaAtual={setTelaAtual} />
       </div>
     );
   }
 
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-24 md:pb-0">
-      <Navbar 
-        usuario={usuario} 
-        telaAtual={telaAtual as TelaTipo} 
-        setTelaAtual={(t) => setTelaAtual(t)} 
-        handleLogout={handleLogout} 
-        menuMobileAberto={menuMobileAberto} 
-        setMenuMobileAberto={setMenuMobileAberto}
-        onOpenSchool={() => setSchoolModalOpen(true)}
-      />
+      <Navbar usuario={usuario} telaAtual={telaAtual as TelaTipo} setTelaAtual={(t) => setTelaAtual(t)} handleLogout={handleLogout} menuMobileAberto={menuMobileAberto} setMenuMobileAberto={setMenuMobileAberto} onOpenSchool={() => setSchoolModalOpen(true)} />
       
-      {schoolModalOpen && usuario && (
-        <SchoolModal 
-          usuario={usuario} 
-          setOpen={setSchoolModalOpen} 
-          onSucesso={carregarUsuarioCompleto}
-        />
-      )}
-      
+      {schoolModalOpen && usuario && <SchoolModal usuario={usuario} setOpen={setSchoolModalOpen} onSucesso={carregarUsuarioCompleto} />}
       {modalDetalhesOpen && <ModalDetalhes simulado={simuladoSelecionado} setOpen={setModalDetalhesOpen} iniciar={iniciarSimuladoReal} loading={loadingSimulado} />}
       {modalPremiumOpen && <ModalPremium setOpen={setModalPremiumOpen} />}
 
       {telaAtual === "home" && (
         <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in fade-in duration-500">
            
-           {/* BOTÃO DE DEMONSTRAÇÃO DO ADMIN DA ESCOLA (PROVISÓRIO PARA APRESENTAÇÃO) */}
+           {/* PAINEL DEMO DA ESCOLA */}
            <div className="mb-6 bg-blue-900 rounded-xl p-4 flex items-center justify-between text-white shadow-lg">
               <div>
                   <h3 className="font-bold text-lg">Área da Escola (Demo)</h3>
                   <p className="text-blue-200 text-sm">Cadastre perguntas e gerencie o banco.</p>
               </div>
-              <button 
-                onClick={() => setTelaAtual("admin_questoes")}
-                className="bg-white text-blue-900 px-4 py-2 rounded-lg font-bold hover:bg-blue-50 transition-colors flex items-center gap-2"
-              >
-                <Settings size={18} />
-                Acessar Painel
-              </button>
+              <div className="flex gap-2">
+                 <button onClick={() => setTelaAtual("admin_questoes")} className="bg-white text-blue-900 px-3 py-2 rounded-lg font-bold hover:bg-blue-50 text-sm">Questões</button>
+                 <button onClick={() => setTelaAtual("admin_alunos")} className="bg-blue-800 text-white border border-blue-700 px-3 py-2 rounded-lg font-bold hover:bg-blue-700 text-sm">Alunos</button>
+              </div>
            </div>
            
            <div className="mb-6"><h2 className="text-2xl font-bold text-gray-800">Categorias Oficiais</h2><p className="text-gray-500">Selecione sua habilitação.</p></div>
@@ -333,7 +353,7 @@ export default function App() {
       )}
 
       {telaAtual === "estatisticas" && <StatsView />}
-      <MobileNav telaAtual={telaAtual as TelaTipo} setTelaAtual={(t) => setTelaAtual(t)} />
+      <MobileNav telaAtual={telaAtual} setTelaAtual={(t) => setTelaAtual(t)} />
     </div>
   );
 }

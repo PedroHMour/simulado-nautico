@@ -1,16 +1,18 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
-import { Plus, Trash2, Edit, Save, X, Search, CheckCircle, AlertTriangle } from "lucide-react";
+import Image from "next/image";
+import { Plus, Trash2, Save, X, CheckCircle, AlertTriangle, ImageIcon } from "lucide-react";
 
 export const AdminQuestions = () => {
   const [questions, setQuestions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
+  const [uploading, setUploading] = useState(false);
   
-  // Estado do Formulário
   const [formData, setFormData] = useState({
     category: "ARA", 
     text: "",
+    image_url: "",
     answer_a: "",
     answer_b: "",
     answer_c: "",
@@ -24,13 +26,39 @@ export const AdminQuestions = () => {
 
   const fetchQuestions = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from('questions')
       .select('*')
       .order('created_at', { ascending: false });
     
     if (data) setQuestions(data);
     setLoading(false);
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files || e.target.files.length === 0) return;
+    
+    setUploading(true);
+    const file = e.target.files[0];
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Math.random()}.${fileExt}`;
+    const filePath = `${fileName}`;
+
+    try {
+      const { error: uploadError } = await supabase.storage
+        .from('questions')
+        .upload(filePath, file);
+
+      if (uploadError) throw uploadError;
+
+      const { data } = supabase.storage.from('questions').getPublicUrl(filePath);
+      setFormData({ ...formData, image_url: data.publicUrl });
+      alert("Imagem carregada!");
+    } catch (error: any) {
+      alert("Erro no upload: " + error.message);
+    } finally {
+      setUploading(false);
+    }
   };
 
   const handleSave = async (e: React.FormEvent) => {
@@ -48,7 +76,7 @@ export const AdminQuestions = () => {
       
       alert("Questão salva com sucesso!");
       setIsEditing(false);
-      setFormData({ ...formData, text: "", answer_a: "", answer_b: "", answer_c: "", answer_d: "" });
+      setFormData({ ...formData, text: "", image_url: "", answer_a: "", answer_b: "", answer_c: "", answer_d: "" });
       fetchQuestions();
     } catch (error: any) {
       alert("Erro ao salvar: " + error.message);
@@ -61,7 +89,6 @@ export const AdminQuestions = () => {
     fetchQuestions();
   };
 
-  // --- TELA DE LISTAGEM ---
   if (!isEditing) {
     return (
       <div className="max-w-5xl mx-auto p-6 animate-in fade-in">
@@ -87,7 +114,7 @@ export const AdminQuestions = () => {
             <table className="w-full text-left border-collapse">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="p-4 text-xs font-bold text-gray-500 uppercase">Enunciado</th>
+                  <th className="p-4 text-xs font-bold text-gray-500 uppercase">Questão</th>
                   <th className="p-4 text-xs font-bold text-gray-500 uppercase">Categoria</th>
                   <th className="p-4 text-xs font-bold text-gray-500 uppercase">Gabarito</th>
                   <th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">Ações</th>
@@ -96,7 +123,16 @@ export const AdminQuestions = () => {
               <tbody className="divide-y divide-gray-100">
                 {questions.map((q) => (
                   <tr key={q.id} className="hover:bg-blue-50 transition-colors">
-                    <td className="p-4 text-sm text-gray-800 font-medium truncate max-w-md">{q.text}</td>
+                    <td className="p-4">
+                        <div className="flex items-start gap-3">
+                            {q.image_url && (
+                                <div className="w-16 h-16 relative flex-shrink-0 border border-gray-200 rounded-lg overflow-hidden bg-gray-100">
+                                    <Image src={q.image_url} alt="Questão" fill className="object-cover" />
+                                </div>
+                            )}
+                            <span className="text-sm text-gray-800 font-medium line-clamp-2">{q.text}</span>
+                        </div>
+                    </td>
                     <td className="p-4 text-sm">
                         <span className={`px-2 py-1 rounded text-xs font-bold border ${q.category === 'MTA' ? 'bg-yellow-50 text-yellow-700 border-yellow-200' : 'bg-blue-50 text-blue-700 border-blue-200'}`}>
                             {q.category}
@@ -124,7 +160,6 @@ export const AdminQuestions = () => {
     );
   }
 
-  // --- TELA DE CADASTRO (FORMULÁRIO CORRIGIDO) ---
   return (
     <div className="max-w-3xl mx-auto p-6 animate-in slide-in-from-bottom-4">
       <div className="flex items-center justify-between mb-6">
@@ -138,7 +173,6 @@ export const AdminQuestions = () => {
             <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Categoria da Prova</label>
                 <select 
-                    // CORRIGIDO: Fundo cinza claro, texto escuro
                     className="w-full p-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none font-medium"
                     value={formData.category}
                     onChange={e => setFormData({...formData, category: e.target.value})}
@@ -152,7 +186,6 @@ export const AdminQuestions = () => {
             <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Resposta Correta</label>
                 <select 
-                    // CORRIGIDO: Contraste alto para o select
                     className="w-full p-3 bg-green-50 border border-green-200 text-green-800 font-bold rounded-lg focus:ring-2 focus:ring-green-500 outline-none"
                     value={formData.correct_answer}
                     onChange={e => setFormData({...formData, correct_answer: e.target.value})}
@@ -166,11 +199,36 @@ export const AdminQuestions = () => {
         </div>
 
         <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Imagem da Questão (Opcional)</label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 flex flex-col items-center justify-center bg-gray-50 hover:bg-blue-50 transition-colors cursor-pointer relative">
+                <input 
+                    type="file" 
+                    accept="image/*"
+                    onChange={handleImageUpload}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    disabled={uploading}
+                />
+                {uploading ? (
+                    <span className="text-blue-600 font-bold animate-pulse">Enviando imagem...</span>
+                ) : formData.image_url ? (
+                    <div className="relative w-full h-40">
+                         <Image src={formData.image_url} alt="Preview" fill className="object-contain" />
+                         <span className="absolute bottom-2 right-2 bg-green-500 text-white text-xs px-2 py-1 rounded">Imagem Carregada</span>
+                    </div>
+                ) : (
+                    <>
+                        <ImageIcon className="text-gray-400 mb-2" size={32} />
+                        <span className="text-gray-500 text-sm font-medium">Clique para fazer upload da imagem</span>
+                    </>
+                )}
+            </div>
+        </div>
+
+        <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Enunciado da Pergunta</label>
             <textarea 
                 required
                 rows={3}
-                // CORRIGIDO: Input de texto com fundo cinza e texto preto
                 className="w-full p-3 bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-400 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
                 placeholder="Digite aqui a pergunta completa..."
                 value={formData.text}
@@ -188,7 +246,6 @@ export const AdminQuestions = () => {
                     <input 
                         type="text"
                         required
-                        // CORRIGIDO: Inputs das alternativas
                         className={`flex-1 p-3 rounded-lg outline-none transition-all font-medium ${
                             formData.correct_answer === letra 
                             ? 'bg-green-50 border-green-500 text-green-900 placeholder-green-700/50' 
@@ -215,12 +272,12 @@ export const AdminQuestions = () => {
             </button>
             <button 
                 type="submit" 
-                className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 transition-all shadow-lg shadow-blue-900/20 flex items-center gap-2 transform active:scale-95"
+                disabled={uploading}
+                className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 transition-all shadow-lg shadow-blue-900/20 flex items-center gap-2 transform active:scale-95 disabled:opacity-50"
             >
                 <Save size={20} /> Salvar Questão
             </button>
         </div>
-
       </form>
     </div>
   );

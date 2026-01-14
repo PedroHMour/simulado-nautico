@@ -5,7 +5,7 @@ export type TelaTipo = "login" | "cadastro" | "home" | "simulado" | "resultado" 
 export interface Usuario {
   id: string;
   email?: string;
-  created_at?: string; // ADICIONADO: Agora o TS sabe que esse campo existe
+  created_at?: string; // Adicionado para evitar erro no AdminStudents
   user_metadata: {
     full_name?: string;
     avatar_url?: string;
@@ -30,10 +30,11 @@ export interface QuestionDB {
   answer_b: string;
   answer_c: string;
   answer_d: string;
-  answer_e?: string | null;
-  correct_answer: string;
+  answer_e?: string | null; // Opcional
+  correct_answer: string; // 'A', 'B', 'C', 'D', 'E'
   explanation?: string;
   active: boolean;
+  created_at?: string;
 }
 
 export interface SimuladoCardType {
@@ -45,5 +46,5 @@ export interface SimuladoCardType {
   questoes: number;
   tempo: string;
   minimo: number;
-  icon: ReactNode;
+  icon: ReactNode; // Tipagem correta para ícones React
 }

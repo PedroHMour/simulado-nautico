@@ -10,6 +10,9 @@ export const AdminQuestions = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   
+  // Controla se o campo E está visível
+  const [showOptionE, setShowOptionE] = useState(false);
+  
   const [formData, setFormData] = useState({
     category: "ARA", 
     text: "",
@@ -33,8 +36,19 @@ export const AdminQuestions = () => {
       .select('*')
       .order('created_at', { ascending: false });
     
+    // Cast seguro pois o formato do banco bate com a interface
     if (data) setQuestions(data as QuestionDB[]);
     setLoading(false);
+  };
+
+  const handleNew = () => {
+      setFormData({ 
+          category: "ARA", text: "", image_url: "", 
+          answer_a: "", answer_b: "", answer_c: "", answer_d: "", answer_e: "", 
+          correct_answer: "A" 
+      });
+      setShowOptionE(false);
+      setIsEditing(true);
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -67,9 +81,12 @@ export const AdminQuestions = () => {
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      // Se não estiver mostrando a opção E, garante que salva como NULL
+      const finalAnswerE = (showOptionE && formData.answer_e.trim() !== "") ? formData.answer_e : null;
+
       const payload = {
           ...formData,
-          answer_e: formData.answer_e.trim() === "" ? null : formData.answer_e,
+          answer_e: finalAnswerE,
           topic: 'GERAL',
           active: true
       };
@@ -82,11 +99,7 @@ export const AdminQuestions = () => {
       
       alert("Questão salva com sucesso!");
       setIsEditing(false);
-      setFormData({ 
-          category: "ARA", text: "", image_url: "", 
-          answer_a: "", answer_b: "", answer_c: "", answer_d: "", answer_e: "", 
-          correct_answer: "A" 
-      });
+      handleNew(); 
       fetchQuestions();
     } catch (error) {
        const msg = error instanceof Error ? error.message : "Erro desconhecido";
@@ -100,6 +113,18 @@ export const AdminQuestions = () => {
     fetchQuestions();
   };
 
+  const toggleOptionE = () => {
+      if (showOptionE) {
+          // Se vai esconder, reseta o valor e o gabarito se estiver marcado E
+          setFormData(prev => ({
+              ...prev,
+              answer_e: "",
+              correct_answer: prev.correct_answer === 'E' ? 'A' : prev.correct_answer
+          }));
+      }
+      setShowOptionE(!showOptionE);
+  };
+
   if (!isEditing) {
     return (
       <div className="max-w-5xl mx-auto p-6 animate-in fade-in">
@@ -109,7 +134,7 @@ export const AdminQuestions = () => {
             <p className="text-gray-500">Gerencie o conteúdo dos simulados.</p>
           </div>
           <button 
-            onClick={() => setIsEditing(true)}
+            onClick={handleNew}
             className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors shadow-md"
           >
             <Plus size={20} /> Nova Questão
@@ -197,14 +222,14 @@ export const AdminQuestions = () => {
                     <option value="B">Alternativa B</option>
                     <option value="C">Alternativa C</option>
                     <option value="D">Alternativa D</option>
-                    <option value="E">Alternativa E</option>
+                    {showOptionE && <option value="E">Alternativa E</option>}
                 </select>
             </div>
         </div>
 
         <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Imagem (Opcional)</label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-blue-50 cursor-pointer relative h-32">
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-blue-50 cursor-pointer relative h-32 transition-colors">
                 <input 
                     type="file" 
                     accept="image/*"
@@ -229,20 +254,20 @@ export const AdminQuestions = () => {
             <label className="block text-sm font-bold text-gray-700 mb-1">Enunciado</label>
             <textarea 
                 required rows={3}
-                className="w-full p-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg outline-none resize-none"
+                className="w-full p-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg outline-none resize-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Digite a pergunta..."
                 value={formData.text}
                 onChange={e => setFormData({...formData, text: e.target.value})}
             />
         </div>
 
-        {/* ALTERNATIVAS */}
+        {/* ALTERNATIVAS A, B, C, D */}
         <div className="space-y-3">
             <label className="block text-sm font-bold text-gray-700">Alternativas</label>
-            {['A', 'B', 'C', 'D', 'E'].map((letra) => {
-                // CORREÇÃO: Criação da chave fortemente tipada para evitar erro TS
+            
+            {['A', 'B', 'C', 'D'].map((letra) => {
+                // Tipagem dinâmica segura
                 const fieldName = `answer_${letra.toLowerCase()}` as keyof typeof formData;
-                
                 return (
                   <div key={letra} className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${formData.correct_answer === letra ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
@@ -256,14 +281,51 @@ export const AdminQuestions = () => {
                               ? 'bg-green-50 border-green-500 text-green-900' 
                               : 'bg-gray-50 border-gray-200 text-gray-900 focus:bg-white focus:border-blue-500'
                           }`}
-                          placeholder={letra === 'E' ? "Opcional" : `Alternativa ${letra}`}
-                          // Sem @ts-ignore: Acesso seguro usando a variável tipada fieldName
+                          placeholder={`Alternativa ${letra}`}
                           value={formData[fieldName]}
                           onChange={e => setFormData({...formData, [fieldName]: e.target.value})}
                       />
                   </div>
                 );
             })}
+
+            {/* ALTERNATIVA E (Condicional) */}
+            {showOptionE ? (
+                <div className="flex items-center gap-3 animate-in slide-in-from-top-2">
+                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${formData.correct_answer === 'E' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
+                        E
+                    </div>
+                    <input 
+                        type="text"
+                        required
+                        className={`flex-1 p-3 rounded-lg outline-none transition-all font-medium ${
+                            formData.correct_answer === 'E' 
+                            ? 'bg-green-50 border-green-500 text-green-900' 
+                            : 'bg-gray-50 border-gray-200 text-gray-900 focus:bg-white focus:border-blue-500'
+                        }`}
+                        placeholder="Alternativa E"
+                        value={formData.answer_e}
+                        onChange={e => setFormData({...formData, answer_e: e.target.value})}
+                    />
+                    <button 
+                        type="button" 
+                        onClick={toggleOptionE}
+                        className="p-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
+                        title="Remover alternativa E"
+                    >
+                        <Trash2 size={20} />
+                    </button>
+                </div>
+            ) : (
+                <button 
+                    type="button"
+                    onClick={toggleOptionE}
+                    className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-2 rounded-lg transition-all"
+                >
+                    <Plus size={16} /> Adicionar Alternativa E
+                </button>
+            )}
+
         </div>
 
         <div className="pt-6 border-t border-gray-100 flex justify-end gap-3">

@@ -1,6 +1,6 @@
 import React from "react";
 import Image from "next/image";
-import { Clock, ArrowRight, CheckCircle, XCircle } from "lucide-react"; // Anchor removido
+import { Clock, ArrowRight, CheckCircle, XCircle } from "lucide-react";
 import { QuestionDB } from "@/types";
 
 interface QuizRunnerProps {
@@ -35,13 +35,14 @@ export const QuizRunner = ({
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
+  // Mapeia e FILTRA opções vazias (importante para o layout não quebrar se E for null)
   const opcoes = [
     { letra: 'A', texto: questaoAtual.answer_a },
     { letra: 'B', texto: questaoAtual.answer_b },
     { letra: 'C', texto: questaoAtual.answer_c },
     { letra: 'D', texto: questaoAtual.answer_d },
     { letra: 'E', texto: questaoAtual.answer_e } 
-  ].filter(op => op.texto); 
+  ].filter(op => op.texto && op.texto.trim() !== ""); 
 
   const isCorreta = (letra: string) => questaoAtual.correct_answer === letra;
 

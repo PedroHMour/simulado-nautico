@@ -1,20 +1,20 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Image from "next/image";
-import { Plus, Trash2, Save, X, ImageIcon } from "lucide-react";
-import { QuestionDB } from "@/types";
+import { Plus, Trash2, Save, X, ImageIcon, Filter, AlertCircle, ArrowRight } from "lucide-react";
+import { QuestionDB, ExerciseTopicDB } from "@/types";
 
 export const AdminQuestions = () => {
   const [questions, setQuestions] = useState<QuestionDB[]>([]);
+  const [topics, setTopics] = useState<ExerciseTopicDB[]>([]);
   const [loading, setLoading] = useState(true);
   const [isEditing, setIsEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
-  
-  // Controla se o campo E está visível
   const [showOptionE, setShowOptionE] = useState(false);
   
   const [formData, setFormData] = useState({
     category: "ARA", 
+    topic: "", 
     text: "",
     image_url: "",
     answer_a: "",
@@ -26,24 +26,43 @@ export const AdminQuestions = () => {
   });
 
   useEffect(() => {
-    fetchQuestions();
+    fetchData();
   }, []);
 
-  const fetchQuestions = async () => {
+  const fetchData = async () => {
     setLoading(true);
-    const { data } = await supabase
+    
+    // Busca Questões
+    const { data: qData } = await supabase
       .from('questions')
       .select('*')
       .order('created_at', { ascending: false });
     
-    // Cast seguro pois o formato do banco bate com a interface
-    if (data) setQuestions(data as QuestionDB[]);
+    if (qData) setQuestions(qData as QuestionDB[]);
+
+    // Busca Tópicos Disponíveis (Para popular o select)
+    const { data: tData } = await supabase
+      .from('exercise_topics')
+      .select('*')
+      .eq('active', true)
+      .order('title');
+      
+    if (tData) setTopics(tData as ExerciseTopicDB[]);
+
     setLoading(false);
   };
 
   const handleNew = () => {
+      // Se não houver tópicos, não deixa criar
+      if (topics.length === 0) {
+          alert("Atenção: Você precisa criar pelo menos um Tópico de Exercício antes de cadastrar questões.");
+          return;
+      }
+
       setFormData({ 
-          category: "ARA", text: "", image_url: "", 
+          category: "ARA", 
+          topic: topics[0].topic_tag, // Já seleciona o primeiro por padrão para evitar erro
+          text: "", image_url: "", 
           answer_a: "", answer_b: "", answer_c: "", answer_d: "", answer_e: "", 
           correct_answer: "A" 
       });
@@ -53,7 +72,6 @@ export const AdminQuestions = () => {
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
-    
     setUploading(true);
     const file = e.target.files[0];
     const fileExt = file.name.split('.').pop();
@@ -61,18 +79,12 @@ export const AdminQuestions = () => {
     const filePath = `${fileName}`;
 
     try {
-      const { error: uploadError } = await supabase.storage
-        .from('questions')
-        .upload(filePath, file);
-
-      if (uploadError) throw uploadError;
-
+      const { error } = await supabase.storage.from('questions').upload(filePath, file);
+      if (error) throw error;
       const { data } = supabase.storage.from('questions').getPublicUrl(filePath);
       setFormData({ ...formData, image_url: data.publicUrl });
-      alert("Imagem carregada!");
     } catch (error) {
-      const msg = error instanceof Error ? error.message : "Erro desconhecido";
-      alert("Erro no upload: " + msg);
+      alert("Erro no upload da imagem.");
     } finally {
       setUploading(false);
     }
@@ -80,79 +92,77 @@ export const AdminQuestions = () => {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (!formData.topic) {
+        alert("Erro: A questão precisa ter um Tópico selecionado.");
+        return;
+    }
+
     try {
-      // Se não estiver mostrando a opção E, garante que salva como NULL
       const finalAnswerE = (showOptionE && formData.answer_e.trim() !== "") ? formData.answer_e : null;
+      const payload = { ...formData, answer_e: finalAnswerE, active: true };
 
-      const payload = {
-          ...formData,
-          answer_e: finalAnswerE,
-          topic: 'GERAL',
-          active: true
-      };
-
-      const { error } = await supabase
-        .from('questions')
-        .insert([payload]);
-
+      const { error } = await supabase.from('questions').insert([payload]);
       if (error) throw error;
       
       alert("Questão salva com sucesso!");
       setIsEditing(false);
-      handleNew(); 
-      fetchQuestions();
+      fetchData();
     } catch (error) {
        const msg = error instanceof Error ? error.message : "Erro desconhecido";
-      alert("Erro ao salvar: " + msg);
+       alert("Erro ao salvar: " + msg);
     }
   };
 
   const handleDelete = async (id: string) => {
-    if(!confirm("Tem certeza que deseja excluir esta questão?")) return;
+    if(!confirm("Tem certeza que deseja apagar esta questão?")) return;
     await supabase.from('questions').delete().eq('id', id);
-    fetchQuestions();
+    fetchData();
   };
 
   const toggleOptionE = () => {
-      if (showOptionE) {
-          // Se vai esconder, reseta o valor e o gabarito se estiver marcado E
-          setFormData(prev => ({
-              ...prev,
-              answer_e: "",
-              correct_answer: prev.correct_answer === 'E' ? 'A' : prev.correct_answer
-          }));
-      }
+      if (showOptionE) setFormData(prev => ({ ...prev, answer_e: "", correct_answer: prev.correct_answer === 'E' ? 'A' : prev.correct_answer }));
       setShowOptionE(!showOptionE);
   };
 
   if (!isEditing) {
     return (
-      <div className="max-w-5xl mx-auto p-6 animate-in fade-in">
+      <div className="max-w-6xl mx-auto p-6 animate-in fade-in">
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-2xl font-bold text-blue-900">Banco de Questões</h1>
-            <p className="text-gray-500">Gerencie o conteúdo dos simulados.</p>
+            <p className="text-gray-500">Total de {questions.length} questões cadastradas.</p>
           </div>
-          <button 
-            onClick={handleNew}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 transition-colors shadow-md"
-          >
+          <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-md">
             <Plus size={20} /> Nova Questão
           </button>
         </div>
 
-        {loading ? (
-          <div className="text-center py-20 bg-white rounded-xl shadow-sm border border-gray-200">
-            <p className="text-gray-500">Carregando banco de dados...</p>
-          </div>
-        ) : (
+        {/* ALERTA SE NÃO TIVER TÓPICOS */}
+        {topics.length === 0 && !loading && (
+            <div className="mb-6 bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex items-center justify-between text-yellow-800 animate-pulse">
+                <div className="flex items-center gap-3">
+                    <AlertCircle size={24} />
+                    <div>
+                        <h3 className="font-bold">Nenhum Tópico Encontrado!</h3>
+                        <p className="text-sm">Você precisa criar categorias (Ex: RIPEAM) antes de cadastrar questões.</p>
+                    </div>
+                </div>
+                {/* Nota: Idealmente redirecionaria para a tela de exercícios, mas aqui só avisamos */}
+                <div className="text-sm font-bold flex items-center gap-1 opacity-50">
+                    Vá em Exercícios <ArrowRight size={16} />
+                </div>
+            </div>
+        )}
+
+        {loading ? <p className="text-center py-10">Carregando...</p> : (
           <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
             <table className="w-full text-left border-collapse">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="p-4 text-xs font-bold text-gray-500 uppercase">Questão</th>
-                  <th className="p-4 text-xs font-bold text-gray-500 uppercase">Cat.</th>
-                  <th className="p-4 text-xs font-bold text-gray-500 uppercase">Gab.</th>
+                  <th className="p-4 text-xs font-bold text-gray-500 uppercase">Habilitação</th>
+                  <th className="p-4 text-xs font-bold text-gray-500 uppercase">Tópico</th>
                   <th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">Ações</th>
                 </tr>
               </thead>
@@ -161,20 +171,18 @@ export const AdminQuestions = () => {
                   <tr key={q.id} className="hover:bg-blue-50 transition-colors">
                     <td className="p-4">
                         <div className="flex items-start gap-3">
-                            {q.image_url && (
-                                <div className="w-12 h-12 relative shrink-0 border border-gray-200 rounded-lg overflow-hidden bg-gray-100">
-                                    <Image src={q.image_url} alt="Questão" fill className="object-cover" />
-                                </div>
-                            )}
-                            <span className="text-sm text-gray-800 font-medium line-clamp-2 max-w-xs">{q.text}</span>
+                            {q.image_url && <div className="w-10 h-10 relative shrink-0 rounded bg-gray-100"><Image src={q.image_url} alt="img" fill className="object-cover rounded" /></div>}
+                            <span className="text-sm text-gray-800 font-medium line-clamp-2">{q.text}</span>
                         </div>
                     </td>
+                    <td className="p-4 text-sm"><span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-700">{q.category}</span></td>
                     <td className="p-4 text-sm">
-                        <span className="px-2 py-1 rounded text-xs font-bold bg-gray-100 text-gray-700">
-                            {q.category}
-                        </span>
+                        {q.topic ? (
+                            <span className="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
+                                {topics.find(t => t.topic_tag === q.topic)?.title || q.topic}
+                            </span>
+                        ) : <span className="text-red-400 text-xs font-bold">Sem Tópico</span>}
                     </td>
-                    <td className="p-4 text-sm font-bold text-green-600 pl-4">{q.correct_answer}</td>
                     <td className="p-4 text-right">
                       <button onClick={() => handleDelete(q.id)} className="text-gray-400 hover:text-red-500 p-2"><Trash2 size={18} /></button>
                     </td>
@@ -188,150 +196,105 @@ export const AdminQuestions = () => {
     );
   }
 
+  // --- FORMULÁRIO ---
   return (
     <div className="max-w-3xl mx-auto p-6 animate-in slide-in-from-bottom-4">
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-xl font-bold text-gray-800">Nova Questão</h2>
-        <button onClick={() => setIsEditing(false)} className="text-gray-500 hover:text-gray-800 bg-white p-2 rounded-full shadow-sm"><X size={24} /></button>
+        <button onClick={() => setIsEditing(false)} className="bg-white p-2 rounded-full shadow-sm"><X size={24} /></button>
       </div>
 
       <form onSubmit={handleSave} className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 space-y-6">
         
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50 p-4 rounded-xl border border-blue-100">
             <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Categoria</label>
+                <label className="block text-sm font-bold text-blue-900 mb-1">1. Habilitação</label>
                 <select 
-                    className="w-full p-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg outline-none font-medium"
+                    className="w-full p-3 bg-white border border-blue-200 text-gray-900 rounded-lg outline-none font-medium focus:ring-2 focus:ring-blue-500"
                     value={formData.category}
                     onChange={e => setFormData({...formData, category: e.target.value})}
                 >
-                    <option value="ARA">Arrais Amador</option>
+                    <option value="ARA">Arrais-Amador</option>
                     <option value="MTA">Motonauta</option>
-                    <option value="MSA">Mestre Amador</option>
-                    <option value="CPA">Capitão Amador</option>
+                    <option value="MSA">Mestre-Amador</option>
+                    <option value="CPA">Capitão-Amador</option>
                 </select>
             </div>
+            
+            {/* SELECT DE TÓPICOS POPULADO PELO BANCO */}
             <div>
-                <label className="block text-sm font-bold text-gray-700 mb-1">Gabarito</label>
+                <label className="block text-sm font-bold text-blue-900 mb-1 flex items-center gap-2">
+                    <Filter size={16}/> 2. Tópico (Obrigatório)
+                </label>
                 <select 
-                    className="w-full p-3 bg-green-50 border border-green-200 text-green-800 font-bold rounded-lg outline-none"
-                    value={formData.correct_answer}
-                    onChange={e => setFormData({...formData, correct_answer: e.target.value})}
+                    required
+                    className="w-full p-3 bg-white border border-blue-200 text-gray-900 rounded-lg outline-none font-medium focus:ring-2 focus:ring-blue-500"
+                    value={formData.topic}
+                    onChange={e => setFormData({...formData, topic: e.target.value})}
                 >
-                    <option value="A">Alternativa A</option>
-                    <option value="B">Alternativa B</option>
-                    <option value="C">Alternativa C</option>
-                    <option value="D">Alternativa D</option>
-                    {showOptionE && <option value="E">Alternativa E</option>}
+                    <option value="" disabled>Selecione...</option>
+                    {topics.map(t => (
+                        <option key={t.id} value={t.topic_tag}>
+                            {t.title}
+                        </option>
+                    ))}
                 </select>
-            </div>
-        </div>
-
-        <div>
-            <label className="block text-sm font-bold text-gray-700 mb-1">Imagem (Opcional)</label>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-blue-50 cursor-pointer relative h-32 transition-colors">
-                <input 
-                    type="file" 
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    disabled={uploading}
-                />
-                {formData.image_url ? (
-                    <div className="relative w-full h-full">
-                         <Image src={formData.image_url} alt="Preview" fill className="object-contain" />
-                    </div>
-                ) : (
-                    <div className="text-center text-gray-400">
-                        <ImageIcon className="mx-auto mb-1" />
-                        <span className="text-xs">Carregar Foto</span>
-                    </div>
-                )}
             </div>
         </div>
 
         <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Enunciado</label>
-            <textarea 
-                required rows={3}
-                className="w-full p-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg outline-none resize-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Digite a pergunta..."
-                value={formData.text}
-                onChange={e => setFormData({...formData, text: e.target.value})}
-            />
+            <textarea required rows={3} className="w-full p-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg outline-none resize-none focus:ring-2 focus:ring-blue-500" placeholder="Digite a pergunta..." value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} />
+        </div>
+        
+        <div>
+            <label className="block text-sm font-bold text-gray-700 mb-1">Imagem (Opcional)</label>
+            <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 flex flex-col items-center justify-center bg-gray-50 hover:bg-blue-50 cursor-pointer relative h-24 transition-colors">
+                <input type="file" accept="image/*" onChange={handleImageUpload} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer" disabled={uploading} />
+                {formData.image_url ? (
+                    <div className="relative w-full h-full"><Image src={formData.image_url} alt="Preview" fill className="object-contain" /></div>
+                ) : (
+                    <div className="text-center text-gray-400"><ImageIcon className="mx-auto mb-1" size={20}/><span className="text-xs">Clique para adicionar foto</span></div>
+                )}
+            </div>
         </div>
 
-        {/* ALTERNATIVAS A, B, C, D */}
         <div className="space-y-3">
-            <label className="block text-sm font-bold text-gray-700">Alternativas</label>
+            <div className="flex justify-between items-center">
+                <label className="block text-sm font-bold text-gray-700">Alternativas</label>
+                <div className="flex items-center gap-2 text-sm bg-green-50 px-3 py-1 rounded-lg border border-green-100">
+                    <span className="font-bold text-green-800">Correta:</span>
+                    <select className="bg-transparent font-bold text-green-700 outline-none cursor-pointer" value={formData.correct_answer} onChange={e => setFormData({...formData, correct_answer: e.target.value})}>
+                        {['A','B','C','D', showOptionE ? 'E' : ''].filter(Boolean).map(opt => <option key={opt} value={opt}>{opt}</option>)}
+                    </select>
+                </div>
+            </div>
             
             {['A', 'B', 'C', 'D'].map((letra) => {
-                // Tipagem dinâmica segura
                 const fieldName = `answer_${letra.toLowerCase()}` as keyof typeof formData;
                 return (
                   <div key={letra} className="flex items-center gap-3">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${formData.correct_answer === letra ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
-                          {letra}
-                      </div>
-                      <input 
-                          type="text"
-                          required={letra === 'A' || letra === 'B'}
-                          className={`flex-1 p-3 rounded-lg outline-none transition-all font-medium ${
-                              formData.correct_answer === letra 
-                              ? 'bg-green-50 border-green-500 text-green-900' 
-                              : 'bg-gray-50 border-gray-200 text-gray-900 focus:bg-white focus:border-blue-500'
-                          }`}
-                          placeholder={`Alternativa ${letra}`}
-                          value={formData[fieldName]}
-                          onChange={e => setFormData({...formData, [fieldName]: e.target.value})}
-                      />
+                      <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${formData.correct_answer === letra ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-400'}`}>{letra}</div>
+                      <input type="text" required={letra === 'A' || letra === 'B'} className="flex-1 p-3 rounded-lg outline-none border border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-500" placeholder={`Opção ${letra}`} value={formData[fieldName]} onChange={e => setFormData({...formData, [fieldName]: e.target.value})} />
                   </div>
                 );
             })}
 
-            {/* ALTERNATIVA E (Condicional) */}
             {showOptionE ? (
-                <div className="flex items-center gap-3 animate-in slide-in-from-top-2">
-                    <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${formData.correct_answer === 'E' ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-500 border border-gray-200'}`}>
-                        E
-                    </div>
-                    <input 
-                        type="text"
-                        required
-                        className={`flex-1 p-3 rounded-lg outline-none transition-all font-medium ${
-                            formData.correct_answer === 'E' 
-                            ? 'bg-green-50 border-green-500 text-green-900' 
-                            : 'bg-gray-50 border-gray-200 text-gray-900 focus:bg-white focus:border-blue-500'
-                        }`}
-                        placeholder="Alternativa E"
-                        value={formData.answer_e}
-                        onChange={e => setFormData({...formData, answer_e: e.target.value})}
-                    />
-                    <button 
-                        type="button" 
-                        onClick={toggleOptionE}
-                        className="p-3 text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                        title="Remover alternativa E"
-                    >
-                        <Trash2 size={20} />
-                    </button>
+                <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm bg-gray-100 text-gray-400">E</div>
+                    <input type="text" required className="flex-1 p-3 rounded-lg outline-none border border-gray-200 bg-gray-50" placeholder="Opção E" value={formData.answer_e} onChange={e => setFormData({...formData, answer_e: e.target.value})} />
+                    <button type="button" onClick={toggleOptionE} className="p-3 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={20} /></button>
                 </div>
             ) : (
-                <button 
-                    type="button"
-                    onClick={toggleOptionE}
-                    className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-800 hover:bg-blue-50 px-3 py-2 rounded-lg transition-all"
-                >
-                    <Plus size={16} /> Adicionar Alternativa E
-                </button>
+                <button type="button" onClick={toggleOptionE} className="text-xs font-bold text-blue-600 hover:underline flex items-center gap-1 mt-2 ml-11"><Plus size={14} /> Adicionar Opção E</button>
             )}
-
         </div>
 
         <div className="pt-6 border-t border-gray-100 flex justify-end gap-3">
             <button type="button" onClick={() => setIsEditing(false)} className="px-6 py-3 text-gray-600 font-bold hover:bg-gray-100 rounded-lg">Cancelar</button>
             <button type="submit" disabled={uploading} className="px-8 py-3 bg-blue-900 text-white font-bold rounded-lg hover:bg-blue-800 shadow-lg flex items-center gap-2">
-                <Save size={20} /> Salvar
+                <Save size={20} /> Salvar Questão
             </button>
         </div>
       </form>

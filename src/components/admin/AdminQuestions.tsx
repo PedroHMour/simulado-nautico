@@ -11,6 +11,7 @@ export const AdminQuestions = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showOptionE, setShowOptionE] = useState(false);
+  const [statusMsg, setStatusMsg] = useState(""); // Feedback visual
   
   const [formData, setFormData] = useState({
     category: "ARA", 
@@ -31,90 +32,100 @@ export const AdminQuestions = () => {
 
   const fetchData = async () => {
     setLoading(true);
-    
-    // Busca Questões
-    const { data: qData } = await supabase
-      .from('questions')
-      .select('*')
-      .order('created_at', { ascending: false });
-    
+    const { data: qData } = await supabase.from('questions').select('*').order('created_at', { ascending: false });
     if (qData) setQuestions(qData as QuestionDB[]);
 
-    // Busca Tópicos
-    const { data: tData } = await supabase
-      .from('exercise_topics')
-      .select('*')
-      .eq('active', true)
-      .order('title');
-      
+    const { data: tData } = await supabase.from('exercise_topics').select('*').eq('active', true).order('title');
     if (tData) setTopics(tData as ExerciseTopicDB[]);
-
     setLoading(false);
   };
 
   const handleNew = () => {
       if (topics.length === 0) {
-          alert("Atenção: Você precisa criar pelo menos um Tópico de Exercício antes de cadastrar questões.");
+          alert("PARE: Você precisa ir em 'Exercícios' e criar uma Categoria (Card) primeiro.");
           return;
       }
-
       setFormData({ 
           category: "ARA", 
-          topic: topics[0].topic_tag, 
+          topic: topics[0].topic_tag, // Tenta selecionar o primeiro automaticamente
           text: "", image_url: "", 
           answer_a: "", answer_b: "", answer_c: "", answer_d: "", answer_e: "", 
           correct_answer: "A" 
       });
       setShowOptionE(false);
       setIsEditing(true);
+      setStatusMsg("");
   };
 
   const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     if (!e.target.files || e.target.files.length === 0) return;
     setUploading(true);
-    const file = e.target.files[0];
-    const fileExt = file.name.split('.').pop();
-    const fileName = `${Math.random()}.${fileExt}`;
-    const filePath = `${fileName}`;
-
+    setStatusMsg("Enviando imagem...");
     try {
+      const file = e.target.files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random()}.${fileExt}`;
+      const filePath = `${fileName}`;
       const { error } = await supabase.storage.from('questions').upload(filePath, file);
       if (error) throw error;
       const { data } = supabase.storage.from('questions').getPublicUrl(filePath);
       setFormData({ ...formData, image_url: data.publicUrl });
-    } catch (_) { 
-      alert("Erro no upload da imagem.");
+      setStatusMsg("Imagem carregada!");
+    } catch (err) { 
+      alert("Erro ao enviar imagem. Verifique se o Bucket 'questions' existe e é público.");
     } finally {
       setUploading(false);
     }
   };
 
   const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
+    e.preventDefault(); // Impede recarregar a página
+    setStatusMsg("Salvando...");
+
+    // 1. Validação Manual (Caso o HTML falhe)
     if (!formData.topic) {
-        alert("Erro: A questão precisa ter um Tópico selecionado.");
+        alert("ERRO: O campo 'Categoria' está vazio. Selecione um card (Ex: RIPEAM).");
+        setStatusMsg("Erro: Selecione uma categoria.");
+        return;
+    }
+    if (!formData.text) {
+        alert("ERRO: O enunciado da questão está vazio.");
+        setStatusMsg("Erro: Digite a pergunta.");
         return;
     }
 
     try {
       const finalAnswerE = (showOptionE && formData.answer_e.trim() !== "") ? formData.answer_e : null;
-      const payload = { ...formData, answer_e: finalAnswerE, active: true };
+      
+      // Prepara o pacote para o banco
+      const payload = { 
+          ...formData, 
+          answer_e: finalAnswerE, 
+          active: true 
+      };
+
+      console.log("Tentando salvar:", payload); // Olhe o F12 se der erro
 
       const { error } = await supabase.from('questions').insert([payload]);
-      if (error) throw error;
+
+      if (error) {
+          console.error("Erro Supabase:", error);
+          throw error;
+      }
       
-      alert("Questão salva com sucesso!");
+      alert("✅ Questão Salva com Sucesso!");
       setIsEditing(false);
       fetchData();
     } catch (error) {
        const msg = error instanceof Error ? error.message : "Erro desconhecido";
-       alert("Erro ao salvar: " + msg);
+       // Esse alerta vai te dizer EXATAMENTE o que deu errado
+       alert("❌ ERRO AO SALVAR NO BANCO:\n" + msg + "\n\nDica: Você rodou o comando SQL para criar a coluna 'topic'?");
+       setStatusMsg("Erro ao salvar.");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if(!confirm("Tem certeza que deseja apagar esta questão?")) return;
+    if(!confirm("Apagar questão?")) return;
     await supabase.from('questions').delete().eq('id', id);
     fetchData();
   };
@@ -130,7 +141,7 @@ export const AdminQuestions = () => {
         <div className="flex justify-between items-center mb-8">
           <div>
             <h1 className="text-2xl font-bold text-blue-900">Banco de Questões</h1>
-            <p className="text-gray-500">Total de {questions.length} questões cadastradas.</p>
+            <p className="text-gray-500">{questions.length} questões cadastradas.</p>
           </div>
           <button onClick={handleNew} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-md">
             <Plus size={20} /> Nova Questão
@@ -138,16 +149,11 @@ export const AdminQuestions = () => {
         </div>
 
         {topics.length === 0 && !loading && (
-            <div className="mb-6 bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex items-center justify-between text-yellow-800 animate-pulse">
-                <div className="flex items-center gap-3">
-                    <AlertCircle size={24} />
-                    <div>
-                        <h3 className="font-bold">Nenhum Tópico Encontrado!</h3>
-                        <p className="text-sm">Você precisa criar categorias (Ex: RIPEAM) antes de cadastrar questões.</p>
-                    </div>
-                </div>
-                <div className="text-sm font-bold flex items-center gap-1 opacity-50">
-                    Vá em Exercícios <ArrowRight size={16} />
+            <div className="mb-6 bg-red-50 border border-red-200 p-4 rounded-xl flex items-center gap-3 text-red-800">
+                <AlertCircle size={24} />
+                <div>
+                    <h3 className="font-bold">Sistema Travado: Falta Categoria!</h3>
+                    <p className="text-sm">Vá no menu "Exercícios" e crie pelo menos um card (ex: RIPEAM) para destravar o cadastro.</p>
                 </div>
             </div>
         )}
@@ -158,8 +164,8 @@ export const AdminQuestions = () => {
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
                   <th className="p-4 text-xs font-bold text-gray-500 uppercase">Questão</th>
-                  <th className="p-4 text-xs font-bold text-gray-500 uppercase">Habilitação</th>
-                  <th className="p-4 text-xs font-bold text-gray-500 uppercase">Tópico</th>
+                  <th className="p-4 text-xs font-bold text-gray-500 uppercase">Simulado</th>
+                  <th className="p-4 text-xs font-bold text-gray-500 uppercase">Categoria</th>
                   <th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">Ações</th>
                 </tr>
               </thead>
@@ -178,7 +184,7 @@ export const AdminQuestions = () => {
                             <span className="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
                                 {topics.find(t => t.topic_tag === q.topic)?.title || q.topic}
                             </span>
-                        ) : <span className="text-red-400 text-xs font-bold">Sem Tópico</span>}
+                        ) : <span className="text-red-500 text-xs font-bold">SEM CATEGORIA</span>}
                     </td>
                     <td className="p-4 text-right">
                       <button onClick={() => handleDelete(q.id)} className="text-gray-400 hover:text-red-500 p-2"><Trash2 size={18} /></button>
@@ -203,9 +209,16 @@ export const AdminQuestions = () => {
 
       <form onSubmit={handleSave} className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 space-y-6">
         
+        {/* Status Bar */}
+        {statusMsg && (
+            <div className="bg-blue-50 text-blue-800 px-4 py-2 rounded-lg text-sm font-bold border border-blue-200">
+                {statusMsg}
+            </div>
+        )}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50 p-4 rounded-xl border border-blue-100">
             <div>
-                <label className="block text-sm font-bold text-blue-900 mb-1">1. Habilitação</label>
+                <label className="block text-sm font-bold text-blue-900 mb-1">1. Habilitação (Simulado)</label>
                 <select 
                     className="w-full p-3 bg-white border border-blue-200 text-gray-900 rounded-lg outline-none font-medium focus:ring-2 focus:ring-blue-500"
                     value={formData.category}
@@ -220,7 +233,7 @@ export const AdminQuestions = () => {
             
             <div>
                 <label className="text-sm font-bold text-blue-900 mb-1 flex items-center gap-2">
-                    <Filter size={16}/> 2. Tópico (Obrigatório)
+                    <Filter size={16}/> 2. Categoria (Exercício)
                 </label>
                 <select 
                     required
@@ -278,8 +291,6 @@ export const AdminQuestions = () => {
                 return (
                   <div key={letra} className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${formData.correct_answer === letra ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-400'}`}>{letra}</div>
-                      
-                      {/* CORREÇÃO AQUI: Adicionado text-gray-900 e placeholder-gray-500 */}
                       <input 
                           type="text" 
                           required={letra === 'A' || letra === 'B'} 
@@ -295,7 +306,6 @@ export const AdminQuestions = () => {
             {showOptionE ? (
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm bg-gray-100 text-gray-400">E</div>
-                    {/* CORREÇÃO NA OPÇÃO E TAMBÉM */}
                     <input 
                         type="text" 
                         required 

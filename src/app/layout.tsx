@@ -16,7 +16,7 @@ export const metadata: Metadata = {
   title: "Nautico Pro",
   description: "Simulados e Preparatório Náutico",
   icons: {
-    icon: "../favicon.ico",
+    icon: "./favicon.ico",
   },
 };
 

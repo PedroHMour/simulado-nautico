@@ -1,11 +1,12 @@
 import { ReactNode } from "react";
 
-export type TelaTipo = "login" | "cadastro" | "home" | "simulado" | "resultado" | "exercicios" | "estatisticas" | "admin_questoes" | "admin_alunos" | "apostilas" | "perfil";
+// Adicionei 'admin_exercicios' na lista
+export type TelaTipo = "login" | "cadastro" | "home" | "simulado" | "resultado" | "exercicios" | "estatisticas" | "admin_questoes" | "admin_alunos" | "admin_exercicios" | "apostilas" | "perfil";
 
 export interface Usuario {
   id: string;
   email?: string;
-  created_at?: string; // Adicionado para evitar erro no AdminStudents
+  created_at?: string;
   user_metadata: {
     full_name?: string;
     avatar_url?: string;
@@ -30,11 +31,23 @@ export interface QuestionDB {
   answer_b: string;
   answer_c: string;
   answer_d: string;
-  answer_e?: string | null; // Opcional
-  correct_answer: string; // 'A', 'B', 'C', 'D', 'E'
+  answer_e?: string | null;
+  correct_answer: string;
   explanation?: string;
   active: boolean;
   created_at?: string;
+}
+
+// NOVO TIPO
+export interface ExerciseTopicDB {
+  id: string;
+  title: string;
+  description?: string;
+  topic_tag: string;
+  icon_name: string;
+  color_class: string;
+  school_id?: string;
+  active: boolean;
 }
 
 export interface SimuladoCardType {
@@ -46,5 +59,5 @@ export interface SimuladoCardType {
   questoes: number;
   tempo: string;
   minimo: number;
-  icon: ReactNode; // Tipagem correta para ícones React
+  icon: ReactNode;
 }

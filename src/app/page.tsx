@@ -82,19 +82,28 @@ export default function App() {
 
   // Carrega o perfil do usuário
   const carregarPerfil = useCallback(async (authUser: User) => {
+    // Disjuntor de segurança: Se travar, libera a tela em 8 segundos
+    const timeoutSafety = setTimeout(() => {
+        setLoading(false);
+        console.error("Timeout de segurança atingido.");
+    }, 8000);
+
     try {
-        const { data: profile } = await supabase
+        // 1. Consulta Simplificada (Removemos o JOIN complexo que pode estar travando)
+        const { data: profile, error } = await supabase
             .from('profiles')
-            .select(`*, school:schools(*)`)
+            .select('*') // Pegamos apenas os dados diretos para evitar travar no relacionamento
             .eq('id', authUser.id)
             .single();
         
+        if (error) throw error;
+
         const userCompleto = {
             id: authUser.id,
             email: authUser.email,
             user_metadata: authUser.user_metadata,
             school_id: profile?.school_id,
-            school: profile?.school,
+            // school: profile?.school, // Comentado temporariamente para destravar
             created_at: profile?.created_at
         };
 
@@ -102,16 +111,20 @@ export default function App() {
 
         const params = new URLSearchParams(window.location.search);
         const telaSalva = params.get("t") as TelaTipo;
+        
+        // Garante que sai do loading
         if (telaSalva && telaSalva !== 'login') {
             setTelaAtualState(telaSalva);
         } else {
             setTelaAtualState("home");
         }
+
     } catch (error) {
-        console.error("Erro ao carregar perfil", error);
-        setErroAuth("Erro ao carregar perfil.");
+        console.error("Erro crítico ao carregar perfil:", error);
+        setErroAuth("Erro ao carregar seus dados. Tente recarregar.");
     } finally {
-        setLoading(false);
+        clearTimeout(timeoutSafety); // Limpa o timer se tudo correu bem
+        setLoading(false); // OBRIGATÓRIO: Desliga o loading
     }
   }, []);
 

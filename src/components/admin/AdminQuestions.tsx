@@ -13,8 +13,8 @@ export const AdminQuestions = () => {
   const [showOptionE, setShowOptionE] = useState(false);
   
   const [formData, setFormData] = useState({
-    category: "ARA", // Isso continua sendo Simulado (Arrais, Mestre)
-    topic: "", // ISSO É A CATEGORIA DE EXERCÍCIO (RIPEAM, etc)
+    category: "ARA", 
+    topic: "", 
     text: "",
     image_url: "",
     answer_a: "",
@@ -40,7 +40,7 @@ export const AdminQuestions = () => {
     
     if (qData) setQuestions(qData as QuestionDB[]);
 
-    // Busca Tópicos Disponíveis (As Categorias criadas na outra tela)
+    // Busca Tópicos
     const { data: tData } = await supabase
       .from('exercise_topics')
       .select('*')
@@ -53,15 +53,14 @@ export const AdminQuestions = () => {
   };
 
   const handleNew = () => {
-      // Bloqueia se não tiver categoria criada
       if (topics.length === 0) {
-          alert("Atenção: Você precisa criar Categorias de Exercício (Cards) antes de cadastrar questões.");
+          alert("Atenção: Você precisa criar pelo menos um Tópico de Exercício antes de cadastrar questões.");
           return;
       }
 
       setFormData({ 
           category: "ARA", 
-          topic: topics[0].topic_tag, // Seleciona o primeiro da lista pra facilitar
+          topic: topics[0].topic_tag, 
           text: "", image_url: "", 
           answer_a: "", answer_b: "", answer_c: "", answer_d: "", answer_e: "", 
           correct_answer: "A" 
@@ -83,8 +82,7 @@ export const AdminQuestions = () => {
       if (error) throw error;
       const { data } = supabase.storage.from('questions').getPublicUrl(filePath);
       setFormData({ ...formData, image_url: data.publicUrl });
-    } catch (error) { 
-      console.error("Erro upload:", error);
+    } catch (_) { 
       alert("Erro no upload da imagem.");
     } finally {
       setUploading(false);
@@ -95,7 +93,7 @@ export const AdminQuestions = () => {
     e.preventDefault();
     
     if (!formData.topic) {
-        alert("Erro: A questão precisa pertencer a uma Categoria de Exercício.");
+        alert("Erro: A questão precisa ter um Tópico selecionado.");
         return;
     }
 
@@ -106,7 +104,7 @@ export const AdminQuestions = () => {
       const { error } = await supabase.from('questions').insert([payload]);
       if (error) throw error;
       
-      alert("Questão salva e vinculada à categoria!");
+      alert("Questão salva com sucesso!");
       setIsEditing(false);
       fetchData();
     } catch (error) {
@@ -139,14 +137,13 @@ export const AdminQuestions = () => {
           </button>
         </div>
 
-        {/* ALERTA SE NÃO TIVER CATEGORIAS */}
         {topics.length === 0 && !loading && (
             <div className="mb-6 bg-yellow-50 border border-yellow-200 p-4 rounded-xl flex items-center justify-between text-yellow-800 animate-pulse">
                 <div className="flex items-center gap-3">
                     <AlertCircle size={24} />
                     <div>
-                        <h3 className="font-bold">Nenhuma Categoria Encontrada!</h3>
-                        <p className="text-sm">Você precisa criar as categorias (Ex: RIPEAM) antes de cadastrar questões.</p>
+                        <h3 className="font-bold">Nenhum Tópico Encontrado!</h3>
+                        <p className="text-sm">Você precisa criar categorias (Ex: RIPEAM) antes de cadastrar questões.</p>
                     </div>
                 </div>
                 <div className="text-sm font-bold flex items-center gap-1 opacity-50">
@@ -162,7 +159,7 @@ export const AdminQuestions = () => {
                 <tr>
                   <th className="p-4 text-xs font-bold text-gray-500 uppercase">Questão</th>
                   <th className="p-4 text-xs font-bold text-gray-500 uppercase">Habilitação</th>
-                  <th className="p-4 text-xs font-bold text-gray-500 uppercase">Categoria</th>
+                  <th className="p-4 text-xs font-bold text-gray-500 uppercase">Tópico</th>
                   <th className="p-4 text-xs font-bold text-gray-500 uppercase text-right">Ações</th>
                 </tr>
               </thead>
@@ -181,7 +178,7 @@ export const AdminQuestions = () => {
                             <span className="px-2 py-1 rounded text-xs font-bold bg-blue-100 text-blue-700 border border-blue-200">
                                 {topics.find(t => t.topic_tag === q.topic)?.title || q.topic}
                             </span>
-                        ) : <span className="text-red-400 text-xs font-bold">Sem Categoria</span>}
+                        ) : <span className="text-red-400 text-xs font-bold">Sem Tópico</span>}
                     </td>
                     <td className="p-4 text-right">
                       <button onClick={() => handleDelete(q.id)} className="text-gray-400 hover:text-red-500 p-2"><Trash2 size={18} /></button>
@@ -208,7 +205,7 @@ export const AdminQuestions = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-blue-50 p-4 rounded-xl border border-blue-100">
             <div>
-                <label className="block text-sm font-bold text-blue-900 mb-1">1. Habilitação (Simulado)</label>
+                <label className="block text-sm font-bold text-blue-900 mb-1">1. Habilitação</label>
                 <select 
                     className="w-full p-3 bg-white border border-blue-200 text-gray-900 rounded-lg outline-none font-medium focus:ring-2 focus:ring-blue-500"
                     value={formData.category}
@@ -221,10 +218,9 @@ export const AdminQuestions = () => {
                 </select>
             </div>
             
-            {/* O PONTO CHAVE: SELEÇÃO DA CATEGORIA CRIADA */}
             <div>
                 <label className="text-sm font-bold text-blue-900 mb-1 flex items-center gap-2">
-                    <Filter size={16}/> 2. Categoria (Ex: RIPEAM)
+                    <Filter size={16}/> 2. Tópico (Obrigatório)
                 </label>
                 <select 
                     required
@@ -239,13 +235,19 @@ export const AdminQuestions = () => {
                         </option>
                     ))}
                 </select>
-                <p className="text-[10px] text-blue-600 mt-1 pl-1">Vincule a questão ao card de exercício correto.</p>
             </div>
         </div>
 
         <div>
             <label className="block text-sm font-bold text-gray-700 mb-1">Enunciado</label>
-            <textarea required rows={3} className="w-full p-3 bg-gray-50 border border-gray-200 text-gray-900 rounded-lg outline-none resize-none focus:ring-2 focus:ring-blue-500" placeholder="Digite a pergunta..." value={formData.text} onChange={e => setFormData({...formData, text: e.target.value})} />
+            <textarea 
+                required 
+                rows={3} 
+                className="w-full p-3 bg-gray-50 border border-gray-200 text-gray-900 placeholder-gray-500 rounded-lg outline-none resize-none focus:ring-2 focus:ring-blue-500" 
+                placeholder="Digite a pergunta..." 
+                value={formData.text} 
+                onChange={e => setFormData({...formData, text: e.target.value})} 
+            />
         </div>
         
         <div>
@@ -276,7 +278,16 @@ export const AdminQuestions = () => {
                 return (
                   <div key={letra} className="flex items-center gap-3">
                       <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm transition-colors ${formData.correct_answer === letra ? 'bg-green-600 text-white' : 'bg-gray-100 text-gray-400'}`}>{letra}</div>
-                      <input type="text" required={letra === 'A' || letra === 'B'} className="flex-1 p-3 rounded-lg outline-none border border-gray-200 bg-gray-50 focus:bg-white focus:border-blue-500" placeholder={`Opção ${letra}`} value={formData[fieldName]} onChange={e => setFormData({...formData, [fieldName]: e.target.value})} />
+                      
+                      {/* CORREÇÃO AQUI: Adicionado text-gray-900 e placeholder-gray-500 */}
+                      <input 
+                          type="text" 
+                          required={letra === 'A' || letra === 'B'} 
+                          className="flex-1 p-3 rounded-lg outline-none border border-gray-200 bg-gray-50 text-gray-900 placeholder-gray-500 focus:bg-white focus:border-blue-500 transition-all" 
+                          placeholder={`Opção ${letra}`} 
+                          value={formData[fieldName]} 
+                          onChange={e => setFormData({...formData, [fieldName]: e.target.value})} 
+                      />
                   </div>
                 );
             })}
@@ -284,7 +295,15 @@ export const AdminQuestions = () => {
             {showOptionE ? (
                 <div className="flex items-center gap-3">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm bg-gray-100 text-gray-400">E</div>
-                    <input type="text" required className="flex-1 p-3 rounded-lg outline-none border border-gray-200 bg-gray-50" placeholder="Opção E" value={formData.answer_e} onChange={e => setFormData({...formData, answer_e: e.target.value})} />
+                    {/* CORREÇÃO NA OPÇÃO E TAMBÉM */}
+                    <input 
+                        type="text" 
+                        required 
+                        className="flex-1 p-3 rounded-lg outline-none border border-gray-200 bg-gray-50 text-gray-900 placeholder-gray-500 focus:bg-white focus:border-blue-500 transition-all" 
+                        placeholder="Opção E" 
+                        value={formData.answer_e} 
+                        onChange={e => setFormData({...formData, answer_e: e.target.value})} 
+                    />
                     <button type="button" onClick={toggleOptionE} className="p-3 text-red-500 hover:bg-red-50 rounded-lg"><Trash2 size={20} /></button>
                 </div>
             ) : (

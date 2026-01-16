@@ -1,7 +1,7 @@
 "use client";
-import React from "react";
+import React, { useState, useRef, useEffect } from "react";
 import Image from "next/image";
-import { Phone, CheckCircle, User, LogOut, Menu, School } from "lucide-react"; // Anchor removido
+import { Phone, CheckCircle, User, LogOut, School, ChevronDown, Loader2, BookOpen } from "lucide-react";
 import { TelaTipo, Usuario } from "@/types";
 
 interface NavbarProps {
@@ -9,9 +9,8 @@ interface NavbarProps {
   telaAtual: TelaTipo;
   setTelaAtual: (tela: TelaTipo) => void;
   handleLogout: () => void;
-  menuMobileAberto: boolean;
-  setMenuMobileAberto: (v: boolean) => void;
   onOpenSchool: () => void;
+  // Removi as props de menu mobile pois não são mais necessárias
 }
 
 export const Navbar = ({ 
@@ -19,8 +18,6 @@ export const Navbar = ({
   telaAtual, 
   setTelaAtual, 
   handleLogout, 
-  menuMobileAberto, 
-  setMenuMobileAberto,
   onOpenSchool 
 }: NavbarProps) => {
 
@@ -28,133 +25,154 @@ export const Navbar = ({
   const schoolName = usuario?.school?.name;
   const logoUrl = usuario?.school?.logo_url;
 
+  // Estado para controlar o menu do perfil (Dropdown Desktop)
+  const [profileOpen, setProfileOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [saindo, setSaindo] = useState(false);
+
+  // Fecha o menu se clicar fora dele
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setProfileOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const onLogoutClick = async () => {
+      setSaindo(true);
+      await handleLogout();
+      setSaindo(false); 
+  };
+
   return (
     <>
+      {/* BARRA DE TOPO (ESCURA - DESKTOP ONLY) */}
       <div 
         className="text-white text-xs py-2 px-4 hidden md:flex justify-between items-center transition-colors duration-500"
         style={{ backgroundColor: themeColor, filter: 'brightness(0.8)' }} 
       >
-        <span className="font-bold opacity-90">{schoolName ? `Portal do Aluno - ${schoolName}` : "Central do Aluno Exclusiva"}</span>
-        <div className="flex gap-4 opacity-80">
-          <span className="flex items-center gap-1"><Phone size={12} /> Suporte</span>
-          <span className="flex items-center gap-1"><CheckCircle size={12} /> Online</span>
+        <span className="font-bold opacity-90 tracking-wide">
+            {schoolName ? `PORTAL DO ALUNO - ${schoolName.toUpperCase()}` : "CENTRAL DO ALUNO"}
+        </span>
+        <div className="flex gap-4 opacity-80 font-medium">
+          <span className="flex items-center gap-1 cursor-help hover:text-white transition-colors"><Phone size={12} /> Suporte Técnico</span>
+          <span className="flex items-center gap-1 text-green-300"><CheckCircle size={12} /> Sistema Online</span>
         </div>
       </div>
 
-      <header className="bg-white shadow-md border-b border-gray-100 sticky top-0 z-50">
+      {/* HEADER PRINCIPAL */}
+      <header className="bg-white shadow-sm border-b border-gray-100 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center h-16 md:h-20">
+          <div className="flex justify-center md:justify-between items-center h-16 md:h-20 relative">
             
-            <div className="flex items-center gap-3 cursor-pointer" onClick={() => setTelaAtual("home")}>
-              
+            {/* LOGO E TÍTULO (Centralizado no Mobile, Esquerda no Desktop) */}
+            <div className="flex items-center gap-3 cursor-pointer group" onClick={() => setTelaAtual("home")}>
               {logoUrl ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={logoUrl} alt="Logo Escola" className="h-12 w-auto object-contain" />
+                <img src={logoUrl} alt="Logo Escola" className="h-8 md:h-12 w-auto object-contain transition-transform group-hover:scale-105" />
               ) : (
-                <div className="relative h-12 w-12 flex items-center justify-center">
-                   <Image 
-                     src="/logo.png" 
-                     alt="Logo NáuticaPro" 
-                     width={48} 
-                     height={48} 
-                     className="object-contain"
-                   />
+                <div className="relative h-8 w-8 md:h-12 md:w-12">
+                   <Image src="/logo.png" alt="Logo" width={48} height={48} className="object-contain" />
                 </div>
               )}
               
-              <div className="leading-tight">
+              <div className="leading-none text-center md:text-left">
                 {schoolName ? (
-                   <div>
-                     <h1 className="text-xl font-bold uppercase" style={{ color: themeColor }}>
-                       {schoolName.split(' ')[0]} 
-                       <span className="text-gray-600 text-sm normal-case ml-1">
-                         {schoolName.split(' ').slice(1).join(' ')}
-                       </span>
+                   <div className="flex flex-col">
+                     <h1 className="text-sm md:text-xl font-bold uppercase tracking-tight" style={{ color: themeColor }}>
+                       {schoolName}
                      </h1>
-                     <p className="text-[10px] text-gray-400 font-bold tracking-widest uppercase">Parceiro Oficial</p>
+                     <p className="text-[9px] md:text-[10px] text-gray-400 font-bold tracking-widest uppercase mt-0.5">Ambiente Virtual</p>
                    </div>
                 ) : (
-                   <div>
-                     <h1 className="text-xl font-bold text-blue-900">NÁUTICA<span className="text-blue-500">PRO</span></h1>
-                     <p className="text-[10px] text-gray-500 font-medium tracking-widest uppercase">Sistema de Ensino</p>
+                   <div className="flex flex-col">
+                     <h1 className="text-lg md:text-xl font-bold text-blue-900 tracking-tight">NÁUTICA<span className="text-blue-500">PRO</span></h1>
+                     <p className="text-[9px] md:text-[10px] text-gray-500 font-medium tracking-widest uppercase">Ensino à Distância</p>
                    </div>
                 )}
               </div>
             </div>
 
-            <nav className="hidden md:flex items-center gap-8">
-              <button onClick={() => setTelaAtual("home")} className={`font-medium transition-colors ${telaAtual === 'home' ? 'text-gray-900 font-bold' : 'text-gray-500 hover:text-gray-900'}`}>Simulados</button>
-              <button onClick={() => setTelaAtual("exercicios")} className={`font-medium transition-colors ${telaAtual === 'exercicios' ? 'text-gray-900 font-bold' : 'text-gray-500 hover:text-gray-900'}`}>Exercícios</button>
-              <button onClick={() => setTelaAtual("estatisticas")} className={`font-medium transition-colors ${telaAtual === 'estatisticas' ? 'text-gray-900 font-bold' : 'text-gray-500 hover:text-gray-900'}`}>Estatísticas</button>
-              
-              <div className="h-6 w-px bg-gray-200 mx-2"></div>
+            {/* NAVEGAÇÃO DESKTOP (Invisível no Mobile) */}
+            <nav className="hidden md:flex items-center gap-6">
+              <div className="flex items-center bg-gray-50 rounded-full px-1 p-1 border border-gray-100">
+                  <button onClick={() => setTelaAtual("home")} className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${telaAtual === 'home' ? 'bg-white shadow-sm text-gray-900 font-bold' : 'text-gray-500 hover:text-gray-900'}`}>Simulados</button>
+                  <button onClick={() => setTelaAtual("exercicios")} className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${telaAtual === 'exercicios' ? 'bg-white shadow-sm text-gray-900 font-bold' : 'text-gray-500 hover:text-gray-900'}`}>Exercícios</button>
+                  <button onClick={() => setTelaAtual("apostilas")} className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${telaAtual === 'apostilas' ? 'bg-white shadow-sm text-gray-900 font-bold' : 'text-gray-500 hover:text-gray-900'}`}>Apostilas</button>
+                  <button onClick={() => setTelaAtual("estatisticas")} className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${telaAtual === 'estatisticas' ? 'bg-white shadow-sm text-gray-900 font-bold' : 'text-gray-500 hover:text-gray-900'}`}>Desempenho</button>
+              </div>
 
+              <div className="h-8 w-px bg-gray-200"></div>
+
+              {/* Botão Vincular Escola */}
               <button 
                 onClick={onOpenSchool} 
-                className={`flex items-center gap-2 text-sm font-bold px-3 py-1.5 rounded-full transition-all border`}
+                className={`flex items-center gap-2 text-xs font-bold px-3 py-2 rounded-lg transition-all border hover:opacity-80`}
                 style={usuario?.school ? { 
                   color: themeColor, 
-                  borderColor: themeColor,
-                  backgroundColor: `${themeColor}15` 
+                  borderColor: `${themeColor}30`,
+                  backgroundColor: `${themeColor}05` 
                 } : {
                   color: '#6b7280',
-                  borderColor: 'transparent'
+                  borderColor: '#e5e7eb',
+                  backgroundColor: '#f9fafb'
                 }}
               >
-                {usuario?.school ? (
-                  <>
-                    <School size={16} />
-                    <span>{usuario.school.slug.toUpperCase()}</span>
-                  </>
-                ) : (
-                  <>
-                    <School size={16} />
-                    <span>Vincular Escola</span>
-                  </>
-                )}
+                <School size={16} />
+                <span>{usuario?.school ? usuario.school.slug.toUpperCase() : "VINCULAR ESCOLA"}</span>
               </button>
 
-              <div className="flex items-center gap-3 cursor-pointer group relative">
-                <div className="text-right">
-                  <p className="text-sm font-bold text-gray-800">{usuario?.user_metadata?.full_name?.split(' ')[0] || "Aluno"}</p>
-                  <p className="text-xs font-bold" style={{ color: themeColor }}>Online</p>
-                </div>
-                <div 
-                  className="h-10 w-10 rounded-full flex items-center justify-center text-white font-bold border-2 border-white shadow-sm"
-                  style={{ backgroundColor: themeColor }}
+              {/* MENU PERFIL (DROPDOWN) */}
+              <div className="relative" ref={dropdownRef}>
+                <button 
+                    onClick={() => setProfileOpen(!profileOpen)}
+                    className="flex items-center gap-3 pl-2 pr-1 py-1 rounded-full hover:bg-gray-50 border border-transparent hover:border-gray-200 transition-all cursor-pointer"
                 >
-                  <User size={20} />
-                </div>
-                
-                <button onClick={handleLogout} className="absolute -bottom-10 right-0 w-24 bg-white text-red-600 text-sm font-medium py-2 px-4 shadow-lg rounded-lg border border-gray-100 hidden group-hover:flex items-center gap-2">
-                  <LogOut size={14} /> Sair
+                    <div className="text-right hidden lg:block">
+                        <p className="text-sm font-bold text-gray-800 leading-tight">{usuario?.user_metadata?.full_name?.split(' ')[0] || "Aluno"}</p>
+                        <p className="text-[10px] font-bold uppercase tracking-wide opacity-70" style={{ color: themeColor }}>Conectado</p>
+                    </div>
+                    <div 
+                        className="h-9 w-9 rounded-full flex items-center justify-center text-white font-bold shadow-sm"
+                        style={{ backgroundColor: themeColor }}
+                    >
+                        {usuario?.user_metadata?.full_name?.charAt(0).toUpperCase() || <User size={18} />}
+                    </div>
+                    <ChevronDown size={14} className={`text-gray-400 transition-transform duration-200 ${profileOpen ? 'rotate-180' : ''}`} />
                 </button>
+
+                {/* O DROPDOWN EM SI */}
+                {profileOpen && (
+                    <div className="absolute right-0 top-12 w-56 bg-white rounded-xl shadow-xl border border-gray-100 py-2 animate-in fade-in zoom-in-95 duration-200 z-50">
+                        <div className="px-4 py-3 border-b border-gray-50 lg:hidden">
+                            <p className="text-sm font-bold text-gray-900">{usuario?.user_metadata?.full_name}</p>
+                            <p className="text-xs text-gray-500">{usuario?.email}</p>
+                        </div>
+                        
+                        <button onClick={() => { setTelaAtual('perfil'); setProfileOpen(false); }} className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 flex items-center gap-2 font-medium transition-colors">
+                            <User size={16} className="text-gray-400" /> Meu Perfil
+                        </button>
+                        
+                        <div className="my-1 border-t border-gray-100"></div>
+                        
+                        <button 
+                            onClick={onLogoutClick} 
+                            disabled={saindo}
+                            className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 flex items-center gap-2 font-bold transition-colors"
+                        >
+                            {saindo ? <Loader2 size={16} className="animate-spin" /> : <LogOut size={16} />} 
+                            {saindo ? "Saindo..." : "Sair da Conta"}
+                        </button>
+                    </div>
+                )}
               </div>
             </nav>
-
-            <button className="md:hidden text-gray-600 p-2" onClick={() => setMenuMobileAberto(!menuMobileAberto)}>
-              <Menu size={28} />
-            </button>
+            {/* Menu Hambúrguer REMOVIDO DAQUI */}
           </div>
         </div>
-
-        {menuMobileAberto && (
-          <div className="md:hidden bg-white border-t border-gray-100 p-4 space-y-4 shadow-lg absolute w-full z-50">
-            <button onClick={() => { setTelaAtual("home"); setMenuMobileAberto(false); }} className="block w-full text-left font-bold text-gray-800">Simulados</button>
-            <button onClick={() => { setTelaAtual("exercicios"); setMenuMobileAberto(false); }} className="block w-full text-left font-medium text-gray-600">Exercícios</button>
-            <button onClick={() => { setTelaAtual("estatisticas"); setMenuMobileAberto(false); }} className="block w-full text-left font-medium text-gray-600">Estatísticas</button>
-            
-            <hr className="border-gray-100" />
-            
-            <button onClick={() => { onOpenSchool(); setMenuMobileAberto(false); }} className="flex items-center gap-2 w-full text-left font-bold" style={{ color: themeColor }}>
-               <School size={18} /> {usuario?.school ? usuario.school.name : "Vincular Escola"}
-            </button>
-            
-            <button onClick={handleLogout} className="w-full text-left text-red-600 font-bold flex items-center gap-2 mt-4">
-               <LogOut size={18} /> Sair
-            </button>
-          </div>
-        )}
       </header>
     </>
   );

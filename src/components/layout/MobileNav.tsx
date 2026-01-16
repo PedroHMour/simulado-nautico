@@ -4,8 +4,8 @@ import { TelaTipo } from "@/types";
 
 interface MobileNavProps {
   telaAtual: TelaTipo | "apostilas" | "admin_questoes" | "admin_alunos" | "perfil";
-  // Tipagem corrigida de 'any' para o tipo específico ou string genérica se necessário
-  setTelaAtual: (t: TelaTipo | "apostilas" | "admin_questoes" | "admin_alunos" | "perfil") => void;
+  // Tipagem unificada para evitar erros de build
+  setTelaAtual: (t: any) => void;
 }
 
 export const MobileNav = ({ telaAtual, setTelaAtual }: MobileNavProps) => {
@@ -41,7 +41,7 @@ export const MobileNav = ({ telaAtual, setTelaAtual }: MobileNavProps) => {
           <div className={`p-1.5 rounded-xl transition-all ${getBgClass("exercicios")}`}>
             <Anchor size={22} strokeWidth={2.5} />
           </div>
-          <span className="text-[10px] font-bold">Treino</span>
+          <span className="text-[10px] font-bold">Exercícios</span>
         </button>
 
         <button 

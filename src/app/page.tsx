@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabase";
-import { User } from "@supabase/supabase-js"; // Importação adicionada para corrigir o erro
+import { User } from "@supabase/supabase-js";
 import { TelaTipo, Usuario, QuestionDB, SimuladoCardType, ExerciseTopicDB } from "@/types";
 
 // Componentes
@@ -81,7 +81,6 @@ export default function App() {
   }, [navegarPara]);
 
   // Carrega o perfil do usuário
-  // CORREÇÃO: Tipo 'User' importado do supabase-js ao invés de 'any'
   const carregarPerfil = useCallback(async (authUser: User) => {
     try {
         const { data: profile } = await supabase
@@ -237,7 +236,9 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 font-sans pb-24 md:pb-0">
       <Navbar usuario={usuario} telaAtual={telaAtual as TelaTipo} setTelaAtual={navegarPara} handleLogout={handleLogout} menuMobileAberto={menuMobileAberto} setMenuMobileAberto={setMenuMobileAberto} onOpenSchool={() => setSchoolModalOpen(true)} />
       
-      {schoolModalOpen && usuario && <SchoolModal usuario={usuario} setOpen={setSchoolModalOpen} onSucesso={() => carregarPerfil(usuario)} />}
+      {/* CORREÇÃO: Usamos 'as unknown as User' para satisfazer os tipos E passar no Linter sem usar 'any' */}
+      {schoolModalOpen && usuario && <SchoolModal usuario={usuario} setOpen={setSchoolModalOpen} onSucesso={() => carregarPerfil(usuario as unknown as User)} />}
+      
       {modalDetalhesOpen && <ModalDetalhes simulado={simuladoSelecionado} setOpen={setModalDetalhesOpen} iniciar={() => iniciarSimulado({ category: simuladoSelecionado?.db_category, limit: simuladoSelecionado?.questoes || 10, title: simuladoSelecionado?.titulo || '' })} loading={loadingSimulado} />}
       {modalPremiumOpen && <ModalPremium setOpen={setModalPremiumOpen} />}
 

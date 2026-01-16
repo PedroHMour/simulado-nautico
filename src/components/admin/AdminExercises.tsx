@@ -40,6 +40,7 @@ export const AdminExercises = ({ usuario }: AdminExercisesProps) => {
     setLoading(true);
     let query = supabase.from('exercise_topics').select('*').order('created_at', { ascending: false });
     
+    // Filtro: Adm vê tudo, Escola vê Globais + Dela
     if (usuario.school_id) {
         query = query.or(`school_id.is.null,school_id.eq.${usuario.school_id}`);
     } else {
@@ -73,7 +74,7 @@ export const AdminExercises = ({ usuario }: AdminExercisesProps) => {
       
       if (error) throw error;
       
-      alert(finalSchoolId ? "Card da Escola criado com sucesso!" : "Card Global criado com sucesso!");
+      alert(finalSchoolId ? "Card da Escola criado!" : "Card Oficial criado!");
       setIsEditing(false);
       setFormData({ title: "", description: "", topic_tag: "", icon_name: "Ship", color_class: "bg-blue-100 text-blue-600" });
       fetchTopics();
@@ -108,13 +109,13 @@ export const AdminExercises = ({ usuario }: AdminExercisesProps) => {
       <div className="max-w-6xl mx-auto p-6 animate-in fade-in">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-2xl font-bold text-blue-900">Gerenciar Tópicos (Cards)</h1>
+            <h1 className="text-2xl font-bold text-blue-900">Gerenciar Categorias (Cards)</h1>
             <p className="text-gray-500">
-                {usuario.school_id ? "Crie cards personalizados para sua escola." : "Crie os cards oficiais do sistema."}
+                {usuario.school_id ? "Crie categorias extras para sua escola." : "Crie as categorias oficiais de exercício."}
             </p>
           </div>
           <button onClick={() => setIsEditing(true)} className="bg-blue-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 hover:bg-blue-700 shadow-md transition-all">
-            <Plus size={20} /> Novo Card
+            <Plus size={20} /> Nova Categoria
           </button>
         </div>
 
@@ -122,9 +123,8 @@ export const AdminExercises = ({ usuario }: AdminExercisesProps) => {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {topics.length === 0 && (
                   <div className="col-span-3 text-center py-10 border-2 border-dashed border-gray-300 rounded-xl bg-gray-50">
-                      <p className="text-gray-400 font-medium">Nenhum tópico encontrado.</p>
-                      <p className="text-sm text-gray-400 mb-4">Crie o primeiro para começar a cadastrar questões.</p>
-                      <button onClick={() => setIsEditing(true)} className="text-blue-600 font-bold hover:underline">Criar Tópico Agora</button>
+                      <p className="text-gray-400 font-medium">Nenhuma categoria encontrada.</p>
+                      <button onClick={() => setIsEditing(true)} className="text-blue-600 font-bold hover:underline mt-2">Criar Primeira</button>
                   </div>
               )}
 
@@ -156,7 +156,7 @@ export const AdminExercises = ({ usuario }: AdminExercisesProps) => {
                                 <Trash2 size={18} />
                             </button>
                         ) : (
-                            <div className="text-gray-300 p-2 cursor-help" title="Bloqueado: Apenas o criador pode apagar">
+                            <div className="text-gray-300 p-2 cursor-help" title="Bloqueado">
                                 <Lock size={18} />
                             </div>
                         )}
@@ -169,28 +169,27 @@ export const AdminExercises = ({ usuario }: AdminExercisesProps) => {
     );
   }
 
-  // --- FORMULÁRIO ---
   return (
     <div className="max-w-xl mx-auto p-6 animate-in slide-in-from-bottom-4">
        <div className="flex items-center justify-between mb-6">
         <div>
-            <h2 className="text-xl font-bold text-gray-800">Novo Tópico</h2>
-            <p className="text-sm text-gray-500">Crie a categoria antes de criar as perguntas.</p>
+            <h2 className="text-xl font-bold text-gray-800">Nova Categoria</h2>
+            <p className="text-sm text-gray-500">Ex: RIPEAM, Balizamento, Motores...</p>
         </div>
         <button onClick={() => setIsEditing(false)} className="bg-white p-2 rounded-full shadow-sm hover:bg-gray-100"><X size={24} /></button>
       </div>
       
       <form onSubmit={handleSave} className="bg-white p-8 rounded-2xl shadow-lg border border-gray-100 space-y-5">
           <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">Nome do Card</label>
+              <label className="block text-sm font-bold text-gray-700 mb-1">Nome (Título do Card)</label>
               <input type="text" required className="w-full text-gray-700 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: RIPEAM"
                 value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
           </div>
           
           <div>
-              <label className="block text-sm font-bold text-gray-700 mb-1">TAG (Código Interno)</label>
-              <p className="text-xs text-gray-500 mb-2">Use letras maiúsculas e sem espaços. Será usado para vincular as questões.</p>
-              <input type="text" required className="w-full text-gray-700 p-3 border rounded-lg bg-gray-50 font-mono uppercase focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: RIPEAM_2026"
+              <label className="block text-sm font-bold text-gray-700 mb-1">Código Interno (TAG)</label>
+              <p className="text-xs text-gray-500 mb-2">Use letras maiúsculas. Será usado para vincular as questões.</p>
+              <input type="text" required className="w-full text-gray-700 p-3 border rounded-lg bg-gray-50 font-mono uppercase focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: RIPEAM"
                 value={formData.topic_tag} onChange={e => setFormData({...formData, topic_tag: e.target.value.toUpperCase().replace(/\s/g, '_')})} />
           </div>
 
@@ -214,7 +213,7 @@ export const AdminExercises = ({ usuario }: AdminExercisesProps) => {
 
           <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Descrição</label>
-              <input type="text" className="w-full text-gray-700 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Luzes, Marcas e Sinais Sonoros"
+              <input type="text" className="w-full text-gray-700 p-3 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Ex: Regras de Navegação"
                 value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
           </div>
 

@@ -3,9 +3,8 @@ import { Home, Anchor, BookOpen, BarChart2, User } from "lucide-react";
 import { TelaTipo } from "@/types";
 
 interface MobileNavProps {
-  telaAtual: TelaTipo | "apostilas" | "admin_questoes" | "admin_alunos" | "perfil";
-  // Tipagem unificada para evitar erros de build
-  setTelaAtual: (t: any) => void;
+  telaAtual: TelaTipo;
+  setTelaAtual: (t: TelaTipo) => void;
 }
 
 export const MobileNav = ({ telaAtual, setTelaAtual }: MobileNavProps) => {

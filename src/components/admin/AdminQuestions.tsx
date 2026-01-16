@@ -61,7 +61,7 @@ export const AdminQuestions = () => {
 
       setFormData({ 
           category: "ARA", 
-          topic: topics[0].topic_tag, // Já seleciona o primeiro por padrão para evitar erro
+          topic: topics[0].topic_tag, // Já seleciona o primeiro por padrão
           text: "", image_url: "", 
           answer_a: "", answer_b: "", answer_c: "", answer_d: "", answer_e: "", 
           correct_answer: "A" 
@@ -83,7 +83,9 @@ export const AdminQuestions = () => {
       if (error) throw error;
       const { data } = supabase.storage.from('questions').getPublicUrl(filePath);
       setFormData({ ...formData, image_url: data.publicUrl });
-    } catch (error) {
+    } catch (error) { 
+      // CORREÇÃO: Usamos a variável error no console para satisfazer o linter
+      console.error("Erro detalhado do upload:", error);
       alert("Erro no upload da imagem.");
     } finally {
       setUploading(false);
@@ -148,7 +150,6 @@ export const AdminQuestions = () => {
                         <p className="text-sm">Você precisa criar categorias (Ex: RIPEAM) antes de cadastrar questões.</p>
                     </div>
                 </div>
-                {/* Nota: Idealmente redirecionaria para a tela de exercícios, mas aqui só avisamos */}
                 <div className="text-sm font-bold flex items-center gap-1 opacity-50">
                     Vá em Exercícios <ArrowRight size={16} />
                 </div>
@@ -221,9 +222,8 @@ export const AdminQuestions = () => {
                 </select>
             </div>
             
-            {/* SELECT DE TÓPICOS POPULADO PELO BANCO */}
             <div>
-                <label className="block text-sm font-bold text-blue-900 mb-1 flex items-center gap-2">
+                <label className="text-sm font-bold text-blue-900 mb-1 flex items-center gap-2">
                     <Filter size={16}/> 2. Tópico (Obrigatório)
                 </label>
                 <select 

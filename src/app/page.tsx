@@ -41,7 +41,6 @@ export default function App() {
   // --- ESTADOS GLOBAIS ---
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [telaAtual, setTelaAtualState] = useState<TelaTipo>("login");
-  // REMOVIDO: const [menuMobileAberto, setMenuMobileAberto] = useState(false);
   
   const [loadingSimulado, setLoadingSimulado] = useState(false);
   
@@ -201,8 +200,12 @@ export default function App() {
             if (error) throw error;
             alert("Cadastro realizado! Verifique seu e-mail.");
           }
-      } catch (err: any) {
-          setErroAuth(err.message || "Erro na autenticação");
+      } catch (err: unknown) {
+          if (err instanceof Error) {
+            setErroAuth(err.message);
+          } else {
+            setErroAuth("Ocorreu um erro desconhecido.");
+          }
       }
   };
 
@@ -277,7 +280,6 @@ export default function App() {
         telaAtual={telaAtual as TelaTipo} 
         setTelaAtual={navegarPara} 
         handleLogout={handleLogout} 
-        // Mobile props removidas
         onOpenSchool={() => setSchoolModalOpen(true)} 
       />
       
@@ -285,8 +287,7 @@ export default function App() {
         <SchoolModal 
             usuario={usuario} 
             setOpen={setSchoolModalOpen} 
-            // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            onSucesso={() => carregarDadosPerfil(usuario as any)} 
+            onSucesso={() => carregarDadosPerfil(usuario as unknown as User)} 
         />
       )}
       

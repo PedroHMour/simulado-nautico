@@ -135,27 +135,27 @@ export const AdminExercises = ({ usuario }: AdminExercisesProps) => {
       <form onSubmit={handleSave} className="bg-white p-8 rounded-2xl shadow-lg space-y-4">
           <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Título do Card</label>
-              <input type="text" required className="w-full p-3 border rounded-lg" placeholder="Ex: Revisão RIPEAM"
+              <input type="text" required className="w-full text-gray-700 p-3 border rounded-lg" placeholder="Ex: Revisão RIPEAM"
                 value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} />
           </div>
           
           <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Tag de Filtro (Topic)</label>
               <p className="text-xs text-gray-500 mb-1">Deve ser idêntico ao cadastrado nas questões.</p>
-              <input type="text" required className="w-full p-3 border rounded-lg" placeholder="Ex: RIPEAM"
+              <input type="text" required className="w-full text-gray-700 p-3 border rounded-lg" placeholder="Ex: RIPEAM"
                 value={formData.topic_tag} onChange={e => setFormData({...formData, topic_tag: e.target.value.toUpperCase()})} />
           </div>
 
           <div className="grid grid-cols-2 gap-4">
             <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Ícone</label>
-                <select className="w-full p-3 border rounded-lg" value={formData.icon_name} onChange={e => setFormData({...formData, icon_name: e.target.value})}>
+                <select className="w-full text-gray-700 p-3 border rounded-lg" value={formData.icon_name} onChange={e => setFormData({...formData, icon_name: e.target.value})}>
                     {Object.keys(ICON_MAP).map(k => <option key={k} value={k}>{k}</option>)}
                 </select>
             </div>
             <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1">Cor</label>
-                <select className="w-full p-3 border rounded-lg" value={formData.color_class} onChange={e => setFormData({...formData, color_class: e.target.value})}>
+                <select className="w-full text-gray-700 p-3 border rounded-lg" value={formData.color_class} onChange={e => setFormData({...formData, color_class: e.target.value})}>
                     {COLOR_MAP.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
                 </select>
             </div>
@@ -163,7 +163,7 @@ export const AdminExercises = ({ usuario }: AdminExercisesProps) => {
 
           <div>
               <label className="block text-sm font-bold text-gray-700 mb-1">Descrição Curta</label>
-              <input type="text" className="w-full p-3 border rounded-lg" placeholder="Ex: 20 questões"
+              <input type="text" className="w-full text-gray-700 p-3 border rounded-lg" placeholder="Ex: 20 questões"
                 value={formData.description} onChange={e => setFormData({...formData, description: e.target.value})} />
           </div>
 

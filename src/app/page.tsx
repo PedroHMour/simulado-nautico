@@ -18,11 +18,13 @@ import { SchoolModal } from "@/components/school/SchoolModal";
 import { AdminQuestions } from "@/components/admin/AdminQuestions";
 import { AdminStudents } from "@/components/admin/AdminStudents";
 import { AdminExercises } from "@/components/admin/AdminExercises";
+// Modal de Reset de Senha
+import { ModalResetPassword } from "@/components/auth/ModalResetPassword";
 
 // Ícones e Dados
 import { Anchor, Ship, Zap, Compass, Target, LifeBuoy, Flame, AlertTriangle, Lock, BookOpen, ArrowRight, LogOut, Loader2 } from "lucide-react";
 
-// Mapeamento auxiliar para renderizar ícones dinâmicos na tela de exercícios
+// Mapeamento auxiliar
 const ICON_MAP: Record<string, React.ReactNode> = {
     'Ship': <Ship size={32} />, 'Anchor': <Anchor size={32} />, 'Target': <Target size={32} />,
     'LifeBuoy': <LifeBuoy size={32} />, 'Flame': <Flame size={32} />, 'AlertTriangle': <AlertTriangle size={32} />,
@@ -48,6 +50,7 @@ export default function App() {
   const [simuladoSelecionado, setSimuladoSelecionado] = useState<SimuladoCardType | null>(null);
   const [modalPremiumOpen, setModalPremiumOpen] = useState(false);
   const [schoolModalOpen, setSchoolModalOpen] = useState(false);
+  const [modalResetSenhaOpen, setModalResetSenhaOpen] = useState(false);
 
   // Auth
   const [email, setEmail] = useState("");
@@ -80,30 +83,25 @@ export default function App() {
     navegarPara("login");
   }, [navegarPara]);
 
-  // Carrega o perfil do usuário
+  // Carrega o perfil do usuário (COM TIMEOUT PARA NÃO TRAVAR)
   const carregarPerfil = useCallback(async (authUser: User) => {
-    // Disjuntor de segurança: Se travar, libera a tela em 8 segundos
     const timeoutSafety = setTimeout(() => {
+        console.error("Timeout ao carregar perfil. Destravando...");
         setLoading(false);
-        console.error("Timeout de segurança atingido.");
-    }, 8000);
+    }, 6000); // 6 segundos limite
 
     try {
-        // 1. Consulta Simplificada (Removemos o JOIN complexo que pode estar travando)
-        const { data: profile, error } = await supabase
+        const { data: profile } = await supabase
             .from('profiles')
-            .select('*') // Pegamos apenas os dados diretos para evitar travar no relacionamento
+            .select('*') // Query simplificada para evitar travamentos
             .eq('id', authUser.id)
             .single();
         
-        if (error) throw error;
-
         const userCompleto = {
             id: authUser.id,
             email: authUser.email,
             user_metadata: authUser.user_metadata,
             school_id: profile?.school_id,
-            // school: profile?.school, // Comentado temporariamente para destravar
             created_at: profile?.created_at
         };
 
@@ -112,46 +110,81 @@ export default function App() {
         const params = new URLSearchParams(window.location.search);
         const telaSalva = params.get("t") as TelaTipo;
         
-        // Garante que sai do loading
         if (telaSalva && telaSalva !== 'login') {
             setTelaAtualState(telaSalva);
         } else {
             setTelaAtualState("home");
         }
-
     } catch (error) {
-        console.error("Erro crítico ao carregar perfil:", error);
-        setErroAuth("Erro ao carregar seus dados. Tente recarregar.");
+        console.error("Erro ao carregar perfil", error);
+        // Mesmo com erro, liberamos o loading para o usuário não ficar preso
+        setErroAuth("Erro ao sincronizar perfil. Algumas funções podem estar limitadas.");
     } finally {
-        clearTimeout(timeoutSafety); // Limpa o timer se tudo correu bem
-        setLoading(false); // OBRIGATÓRIO: Desliga o loading
+        clearTimeout(timeoutSafety);
+        setLoading(false);
     }
   }, []);
 
+  // Verifica Sessão com Failsafe (Não deixa travar no "Carregando")
   const verificarSessaoInicial = useCallback(async () => {
-    setLoading(true);
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session) {
-      await carregarPerfil(session.user);
-    } else {
+    try {
+      // Tenta pegar a sessão com um limite de tempo de 4 segundos
+      const { data, error } = await Promise.race([
+        supabase.auth.getSession(),
+        new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout Supabase")), 4000))
+      ]) as any;
+
+      if (error) throw error;
+      
+      if (data.session) {
+        await carregarPerfil(data.session.user);
+      } else {
+        setLoading(false);
+        navegarPara("login");
+      }
+    } catch (error) {
+      console.error("Sessão inicial falhou ou demorou demais:", error);
       setLoading(false);
       navegarPara("login");
     }
   }, [carregarPerfil, navegarPara]);
 
   useEffect(() => {
+    // 1. Timer de Segurança Global: Se em 5s nada acontecer, libera a tela.
+    const globalTimer = setTimeout(() => {
+        setLoading(atual => {
+            if(atual) {
+                console.warn("Destrava de emergência ativada.");
+                return false; 
+            }
+            return atual;
+        });
+    }, 5000);
+
+    // 2. Verifica sessão
     verificarSessaoInicial();
     
+    // 3. Ouve mudanças de auth
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log("Auth Event:", event);
+      
       if (event === 'SIGNED_IN' && session) {
         await carregarPerfil(session.user);
       } else if (event === 'SIGNED_OUT') {
         setUsuario(null);
         navegarPara("login");
         setLoading(false);
+      } else if (event === 'PASSWORD_RECOVERY') {
+        // DETECTOU LINK DE EMAIL!
+        setModalResetSenhaOpen(true);
+        setLoading(false);
       }
     });
-    return () => subscription.unsubscribe();
+
+    return () => {
+        subscription.unsubscribe();
+        clearTimeout(globalTimer);
+    };
   }, [verificarSessaoInicial, carregarPerfil, navegarPara]);
 
   useEffect(() => {
@@ -210,6 +243,7 @@ export default function App() {
               <div className="flex flex-col items-center gap-4">
                   <Loader2 className="animate-spin text-blue-900" size={48} />
                   <p className="text-gray-500 font-medium">Carregando sistema...</p>
+                  <p className="text-xs text-gray-400">Isso não deve demorar...</p>
               </div>
           </div>
       );
@@ -249,11 +283,14 @@ export default function App() {
     <div className="min-h-screen bg-slate-50 font-sans pb-24 md:pb-0">
       <Navbar usuario={usuario} telaAtual={telaAtual as TelaTipo} setTelaAtual={navegarPara} handleLogout={handleLogout} menuMobileAberto={menuMobileAberto} setMenuMobileAberto={setMenuMobileAberto} onOpenSchool={() => setSchoolModalOpen(true)} />
       
-      {/* CORREÇÃO: Usamos 'as unknown as User' para satisfazer os tipos E passar no Linter sem usar 'any' */}
+      {/* CORREÇÃO DO LINTER: Usando 'as unknown as User' para passar o tipo sem dar erro no Build */}
       {schoolModalOpen && usuario && <SchoolModal usuario={usuario} setOpen={setSchoolModalOpen} onSucesso={() => carregarPerfil(usuario as unknown as User)} />}
       
       {modalDetalhesOpen && <ModalDetalhes simulado={simuladoSelecionado} setOpen={setModalDetalhesOpen} iniciar={() => iniciarSimulado({ category: simuladoSelecionado?.db_category, limit: simuladoSelecionado?.questoes || 10, title: simuladoSelecionado?.titulo || '' })} loading={loadingSimulado} />}
       {modalPremiumOpen && <ModalPremium setOpen={setModalPremiumOpen} />}
+
+      {/* RENDERIZAÇÃO DO MODAL DE RESET DE SENHA */}
+      {modalResetSenhaOpen && <ModalResetPassword setOpen={setModalResetSenhaOpen} />}
 
       {/* HOME */}
       {telaAtual === "home" && (

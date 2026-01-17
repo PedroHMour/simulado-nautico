@@ -23,7 +23,7 @@ import { ModalResetPassword } from "@/components/auth/ModalResetPassword";
 // Ícones e Dados
 import { Anchor, Ship, Zap, Compass, Target, LifeBuoy, Flame, AlertTriangle, Lock, BookOpen, ArrowRight, LogOut, Loader2, School } from "lucide-react";
 
-// Mapeamento auxiliar
+// Mapeamento auxiliar de ícones
 const ICON_MAP: Record<string, React.ReactNode> = {
     'Ship': <Ship size={32} />, 'Anchor': <Anchor size={32} />, 'Target': <Target size={32} />,
     'LifeBuoy': <LifeBuoy size={32} />, 'Flame': <Flame size={32} />, 'AlertTriangle': <AlertTriangle size={32} />,
@@ -62,6 +62,9 @@ export default function App() {
   // Dados Dinâmicos
   const [questions, setQuestions] = useState<QuestionDB[]>([]);
   const [exerciseTopics, setExerciseTopics] = useState<ExerciseTopicDB[]>([]);
+  
+  // Estado para saber qual categoria/tópico estamos fazendo (para salvar no banco depois)
+  const [categoriaAtual, setCategoriaAtual] = useState<string>("GERAL");
 
   // Quiz
   const [indicePergunta, setIndicePergunta] = useState(0);
@@ -209,11 +212,13 @@ export default function App() {
       }
   };
 
+  // --- INICIAR SIMULADO (Busca + Reset) ---
   const iniciarSimulado = async (config: { category?: string, topic?: string, limit: number, title: string }) => {
     setLoadingSimulado(true);
     try {
       let query = supabase.from('questions').select('*').eq('active', true);
       
+      // Filtros
       if (config.category) query = query.eq('category', config.category);
       if (config.topic) query = query.eq('topic', config.topic);
 
@@ -222,6 +227,10 @@ export default function App() {
       if (error) throw error;
       if (!data || data.length === 0) { alert(`Banco vazio para ${config.title}.`); return; }
 
+      // Define qual categoria estamos fazendo para salvar no histórico depois
+      setCategoriaAtual(config.topic || config.category || "GERAL");
+
+      // Embaralha e Prepara
       setQuestions(data.sort(() => Math.random() - 0.5) as QuestionDB[]);
       setModalDetalhesOpen(false);
       navegarPara("simulado");
@@ -246,6 +255,7 @@ export default function App() {
       );
   }
 
+  // Telas de Auth
   if (telaAtual === "login" || telaAtual === "cadastro") {
     return (
       <AuthForm 
@@ -259,20 +269,80 @@ export default function App() {
     );
   }
 
+  // --- TELA SIMULADO (QUIZ) ---
   if (telaAtual === "simulado") {
-    const responder = (idx: number) => { const n = [...respostasUsuario]; n[indicePergunta] = idx; setRespostasUsuario(n); };
-    const proxima = () => { if (indicePergunta < questions.length - 1) setIndicePergunta(i => i + 1); else finalizar(); };
-    const finalizar = async () => { setCronometroAtivo(false); navegarPara("resultado"); };
-    return <QuizRunner questions={questions} indicePergunta={indicePergunta} respostasUsuario={respostasUsuario} tempo={tempo} onResponder={responder} onProxima={proxima} onSair={() => navegarPara("home")} />;
+    const responder = (idx: number) => { 
+        const n = [...respostasUsuario]; 
+        n[indicePergunta] = idx; 
+        setRespostasUsuario(n); 
+    };
+    
+    const proxima = () => { 
+        if (indicePergunta < questions.length - 1) {
+            setIndicePergunta(i => i + 1); 
+        } else {
+            finalizarSimulado(); 
+        }
+    };
+
+    const finalizarSimulado = async () => { 
+        setCronometroAtivo(false); 
+        
+        // --- CÁLCULO DA NOTA ---
+        const mapLetras = ['A', 'B', 'C', 'D', 'E'];
+        const acertos = respostasUsuario.reduce((acc, idx, qIdx) => 
+            questions[qIdx].correct_answer === mapLetras[idx] ? acc + 1 : acc, 0
+        );
+
+        // --- SALVAR NO SUPABASE (A NOVA LÓGICA AQUI) ---
+        if (usuario && usuario.id) {
+            try {
+                await supabase.from('results').insert({
+                    user_id: usuario.id,
+                    category: categoriaAtual,
+                    score: acertos,
+                    total_questions: questions.length,
+                    time_spent_seconds: tempo,
+                    school_id: usuario.school_id || null
+                });
+            } catch (error) {
+                console.error("Erro ao salvar resultado:", error);
+                // Não bloqueamos o usuário de ver o resultado se der erro no save
+            }
+        }
+
+        navegarPara("resultado"); 
+    };
+
+    return (
+        <QuizRunner 
+            questions={questions} 
+            indicePergunta={indicePergunta} 
+            respostasUsuario={respostasUsuario} 
+            tempo={tempo} 
+            onResponder={responder} 
+            onProxima={proxima} 
+            onSair={() => navegarPara("home")} 
+        />
+    );
   }
 
+  // --- TELA RESULTADO ---
   if (telaAtual === "resultado") {
     const mapLetras = ['A', 'B', 'C', 'D', 'E'];
     const acertos = respostasUsuario.reduce((acc, idx, qIdx) => questions[qIdx].correct_answer === mapLetras[idx] ? acc + 1 : acc, 0);
-    return <ResultView acertos={acertos} total={questions.length} tempo={tempo} onRestart={() => navegarPara("home")} />;
+    
+    return (
+        <ResultView 
+            acertos={acertos} 
+            total={questions.length} 
+            tempo={tempo} 
+            onRestart={() => navegarPara("home")} 
+        />
+    );
   }
 
-  // --- RENDER PRINCIPAL ---
+  // --- RENDER PRINCIPAL (DASHBOARD) ---
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-24 md:pb-0 fade-in duration-300">
       <Navbar 
@@ -291,14 +361,26 @@ export default function App() {
         />
       )}
       
-      {modalDetalhesOpen && <ModalDetalhes simulado={simuladoSelecionado} setOpen={setModalDetalhesOpen} iniciar={() => iniciarSimulado({ category: simuladoSelecionado?.db_category, limit: simuladoSelecionado?.questoes || 10, title: simuladoSelecionado?.titulo || '' })} loading={loadingSimulado} />}
+      {modalDetalhesOpen && (
+          <ModalDetalhes 
+              simulado={simuladoSelecionado} 
+              setOpen={setModalDetalhesOpen} 
+              iniciar={() => iniciarSimulado({ 
+                  category: simuladoSelecionado?.db_category, 
+                  limit: simuladoSelecionado?.questoes || 10, 
+                  title: simuladoSelecionado?.titulo || '' 
+              })} 
+              loading={loadingSimulado} 
+          />
+      )}
+      
       {modalPremiumOpen && <ModalPremium setOpen={setModalPremiumOpen} />}
       {modalResetSenhaOpen && <ModalResetPassword setOpen={setModalResetSenhaOpen} />}
 
       {/* HOME */}
       {telaAtual === "home" && (
         <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in slide-in-from-bottom-2 duration-500">
-           {/* Seção Admin */}
+           {/* Seção Admin (Só aparece se você quiser liberar para todos ou criar regra de role) */}
            <div className="mb-6 bg-blue-900 rounded-xl p-4 flex items-center justify-between text-white shadow-lg">
               <div><h3 className="font-bold text-lg">Área do Aluno</h3><p className="text-blue-200 text-sm">Gerencie seus estudos.</p></div>
               <div className="flex gap-2 flex-wrap justify-end">
@@ -340,7 +422,8 @@ export default function App() {
                           <h3 className="font-bold text-gray-800 text-sm leading-tight mb-1">{topico.title}</h3>
                           <p className="text-xs text-gray-400">{topico.description || "Iniciar prática"}</p>
                       </div>
-                      <div className="absolute top-2 right-2 text-gray-300"><Lock size={14} /></div>
+                      {/* Removido cadeado para liberar acesso */}
+                      {/* <div className="absolute top-2 right-2 text-gray-300"><Lock size={14} /></div> */}
                    </div>
                  ))}
                </div>
@@ -367,7 +450,7 @@ export default function App() {
       {/* ESTATÍSTICAS */}
       {telaAtual === "estatisticas" && <StatsView />}
       
-      {/* PERFIL (Tela dedicada) */}
+      {/* PERFIL */}
       {telaAtual === "perfil" && (
           <div className="max-w-md mx-auto p-6 animate-in slide-in-from-right-4 duration-300">
             <h1 className="text-2xl font-bold text-blue-900 mb-6">Meu Perfil</h1>
@@ -384,7 +467,6 @@ export default function App() {
                 <button className="w-full text-left p-4 border-b border-gray-50 hover:bg-gray-50 flex justify-between items-center text-gray-700 font-medium">
                     Editar Meus Dados <ArrowRight size={16} className="text-gray-400"/>
                 </button>
-                {/* BOTÃO VINCULAR ESCOLA ADICIONADO AQUI */}
                 <button 
                   onClick={() => setSchoolModalOpen(true)} 
                   className="w-full text-left p-4 border-b border-gray-50 hover:bg-gray-50 flex justify-between items-center text-gray-700 font-medium"

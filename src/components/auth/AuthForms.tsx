@@ -1,3 +1,4 @@
+// src/components/auth/AuthForms.tsx
 import React, { useState } from "react";
 import Image from "next/image";
 import { Loader2, Mail, Lock, User, ArrowRight, Eye, EyeOff, ArrowLeft } from "lucide-react";

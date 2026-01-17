@@ -1,3 +1,4 @@
+// src/components/auth/ModalResetPassword.tsx
 import React, { useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Loader2, Lock, CheckCircle } from 'lucide-react';

@@ -20,10 +20,10 @@ import { AdminStudents } from "@/components/admin/AdminStudents";
 import { AdminExercises } from "@/components/admin/AdminExercises";
 import { ModalResetPassword } from "@/components/auth/ModalResetPassword";
 
-// Ícones e Dados
+// Ícones
 import { Anchor, Ship, Zap, Compass, Target, LifeBuoy, Flame, AlertTriangle, Lock, BookOpen, ArrowRight, LogOut, Loader2, School } from "lucide-react";
 
-// Mapeamento auxiliar de ícones
+// Mapeamento auxiliar
 const ICON_MAP: Record<string, React.ReactNode> = {
     'Ship': <Ship size={32} />, 'Anchor': <Anchor size={32} />, 'Target': <Target size={32} />,
     'LifeBuoy': <LifeBuoy size={32} />, 'Flame': <Flame size={32} />, 'AlertTriangle': <AlertTriangle size={32} />,
@@ -62,15 +62,15 @@ export default function App() {
   // Dados Dinâmicos
   const [questions, setQuestions] = useState<QuestionDB[]>([]);
   const [exerciseTopics, setExerciseTopics] = useState<ExerciseTopicDB[]>([]);
-  
-  // Estado para saber qual categoria/tópico estamos fazendo (para salvar no banco depois)
-  const [categoriaAtual, setCategoriaAtual] = useState<string>("GERAL");
 
   // Quiz
   const [indicePergunta, setIndicePergunta] = useState(0);
   const [respostasUsuario, setRespostasUsuario] = useState<number[]>([]);
   const [tempo, setTempo] = useState(0);
   const [cronometroAtivo, setCronometroAtivo] = useState(false);
+
+  // Estado auxiliar para salvar a categoria correta no banco
+  const [categoriaAtualSimulado, setCategoriaAtualSimulado] = useState<string>("GERAL");
 
   // --- PERSISTÊNCIA DE TELA (URL) ---
   const navegarPara = useCallback((novaTela: TelaTipo) => {
@@ -118,28 +118,41 @@ export default function App() {
             }) : prev);
         }
     } catch (error) {
-        console.error("Erro ao sincronizar perfil (Background):", error);
+        console.error("Erro ao sincronizar perfil:", error);
     }
   };
 
-  // --- INICIALIZAÇÃO INTELIGENTE ---
+  // --- INICIALIZAÇÃO BLINDADA (CORREÇÃO DO LOADING INFINITO) ---
   useEffect(() => {
     const initApp = async () => {
-        const { data } = await supabase.auth.getSession();
-        
-        if (data.session) {
-            const params = new URLSearchParams(window.location.search);
-            const telaSalva = params.get("t") as TelaTipo;
-            if (telaSalva && telaSalva !== 'login') {
-                setTelaAtualState(telaSalva);
+        try {
+            // Tenta pegar a sessão
+            const { data, error } = await supabase.auth.getSession();
+            
+            if (error) throw error; // Se der erro no Supabase, joga pro catch
+
+            if (data.session) {
+                // Usuário logado
+                const params = new URLSearchParams(window.location.search);
+                const telaSalva = params.get("t") as TelaTipo;
+                if (telaSalva && telaSalva !== 'login') {
+                    setTelaAtualState(telaSalva);
+                } else {
+                    setTelaAtualState("home");
+                }
+                // Carrega dados extras sem travar a tela
+                carregarDadosPerfil(data.session.user);
             } else {
-                setTelaAtualState("home");
+                // Não logado
+                navegarPara("login");
             }
-            carregarDadosPerfil(data.session.user);
-        } else {
-            navegarPara("login");
+        } catch (err) {
+            console.error("Erro na inicialização:", err);
+            navegarPara("login"); // Fallback de segurança
+        } finally {
+            // OBRIGATÓRIO: Desliga o loading aconteça o que acontecer
+            setLoadingAuth(false);
         }
-        setLoadingAuth(false);
     };
 
     initApp();
@@ -212,13 +225,12 @@ export default function App() {
       }
   };
 
-  // --- INICIAR SIMULADO (Busca + Reset) ---
+  // --- INICIAR SIMULADO ---
   const iniciarSimulado = async (config: { category?: string, topic?: string, limit: number, title: string }) => {
     setLoadingSimulado(true);
     try {
       let query = supabase.from('questions').select('*').eq('active', true);
       
-      // Filtros
       if (config.category) query = query.eq('category', config.category);
       if (config.topic) query = query.eq('topic', config.topic);
 
@@ -227,10 +239,9 @@ export default function App() {
       if (error) throw error;
       if (!data || data.length === 0) { alert(`Banco vazio para ${config.title}.`); return; }
 
-      // Define qual categoria estamos fazendo para salvar no histórico depois
-      setCategoriaAtual(config.topic || config.category || "GERAL");
+      // Salva qual a categoria atual para usar na hora de gravar o resultado
+      setCategoriaAtualSimulado(config.category || config.topic || "GERAL");
 
-      // Embaralha e Prepara
       setQuestions(data.sort(() => Math.random() - 0.5) as QuestionDB[]);
       setModalDetalhesOpen(false);
       navegarPara("simulado");
@@ -255,7 +266,6 @@ export default function App() {
       );
   }
 
-  // Telas de Auth
   if (telaAtual === "login" || telaAtual === "cadastro") {
     return (
       <AuthForm 
@@ -269,14 +279,14 @@ export default function App() {
     );
   }
 
-  // --- TELA SIMULADO (QUIZ) ---
+  // --- TELA DE PROVA (QUIZ) ---
   if (telaAtual === "simulado") {
     const responder = (idx: number) => { 
         const n = [...respostasUsuario]; 
         n[indicePergunta] = idx; 
         setRespostasUsuario(n); 
     };
-    
+
     const proxima = () => { 
         if (indicePergunta < questions.length - 1) {
             setIndicePergunta(i => i + 1); 
@@ -285,32 +295,34 @@ export default function App() {
         }
     };
 
+    // --- FUNÇÃO CORRIGIDA: AGORA SALVA NO BANCO ---
     const finalizarSimulado = async () => { 
         setCronometroAtivo(false); 
         
-        // --- CÁLCULO DA NOTA ---
+        // 1. Calcula Acertos
         const mapLetras = ['A', 'B', 'C', 'D', 'E'];
         const acertos = respostasUsuario.reduce((acc, idx, qIdx) => 
             questions[qIdx].correct_answer === mapLetras[idx] ? acc + 1 : acc, 0
         );
 
-        // --- SALVAR NO SUPABASE (A NOVA LÓGICA AQUI) ---
+        // 2. Tenta Salvar no Supabase
         if (usuario && usuario.id) {
             try {
                 await supabase.from('results').insert({
                     user_id: usuario.id,
-                    category: categoriaAtual,
+                    category: categoriaAtualSimulado,
                     score: acertos,
                     total_questions: questions.length,
                     time_spent_seconds: tempo,
                     school_id: usuario.school_id || null
                 });
             } catch (error) {
-                console.error("Erro ao salvar resultado:", error);
-                // Não bloqueamos o usuário de ver o resultado se der erro no save
+                console.error("Erro ao salvar resultado no banco:", error);
+                // Não bloqueia a tela de resultado, apenas loga o erro
             }
         }
 
+        // 3. Mostra o resultado
         navegarPara("resultado"); 
     };
 
@@ -327,19 +339,11 @@ export default function App() {
     );
   }
 
-  // --- TELA RESULTADO ---
+  // --- TELA DE RESULTADO ---
   if (telaAtual === "resultado") {
     const mapLetras = ['A', 'B', 'C', 'D', 'E'];
     const acertos = respostasUsuario.reduce((acc, idx, qIdx) => questions[qIdx].correct_answer === mapLetras[idx] ? acc + 1 : acc, 0);
-    
-    return (
-        <ResultView 
-            acertos={acertos} 
-            total={questions.length} 
-            tempo={tempo} 
-            onRestart={() => navegarPara("home")} 
-        />
-    );
+    return <ResultView acertos={acertos} total={questions.length} tempo={tempo} onRestart={() => navegarPara("home")} />;
   }
 
   // --- RENDER PRINCIPAL (DASHBOARD) ---
@@ -362,16 +366,16 @@ export default function App() {
       )}
       
       {modalDetalhesOpen && (
-          <ModalDetalhes 
-              simulado={simuladoSelecionado} 
-              setOpen={setModalDetalhesOpen} 
-              iniciar={() => iniciarSimulado({ 
-                  category: simuladoSelecionado?.db_category, 
-                  limit: simuladoSelecionado?.questoes || 10, 
-                  title: simuladoSelecionado?.titulo || '' 
-              })} 
-              loading={loadingSimulado} 
-          />
+        <ModalDetalhes 
+            simulado={simuladoSelecionado} 
+            setOpen={setModalDetalhesOpen} 
+            iniciar={() => iniciarSimulado({ 
+                category: simuladoSelecionado?.db_category, 
+                limit: simuladoSelecionado?.questoes || 10, 
+                title: simuladoSelecionado?.titulo || '' 
+            })} 
+            loading={loadingSimulado} 
+        />
       )}
       
       {modalPremiumOpen && <ModalPremium setOpen={setModalPremiumOpen} />}
@@ -380,7 +384,7 @@ export default function App() {
       {/* HOME */}
       {telaAtual === "home" && (
         <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in slide-in-from-bottom-2 duration-500">
-           {/* Seção Admin (Só aparece se você quiser liberar para todos ou criar regra de role) */}
+           {/* Seção Admin */}
            <div className="mb-6 bg-blue-900 rounded-xl p-4 flex items-center justify-between text-white shadow-lg">
               <div><h3 className="font-bold text-lg">Área do Aluno</h3><p className="text-blue-200 text-sm">Gerencie seus estudos.</p></div>
               <div className="flex gap-2 flex-wrap justify-end">
@@ -422,8 +426,7 @@ export default function App() {
                           <h3 className="font-bold text-gray-800 text-sm leading-tight mb-1">{topico.title}</h3>
                           <p className="text-xs text-gray-400">{topico.description || "Iniciar prática"}</p>
                       </div>
-                      {/* Removido cadeado para liberar acesso */}
-                      {/* <div className="absolute top-2 right-2 text-gray-300"><Lock size={14} /></div> */}
+                      <div className="absolute top-2 right-2 text-gray-300"><Lock size={14} /></div>
                    </div>
                  ))}
                </div>

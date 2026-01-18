@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabase";
 import Image from "next/image";
-import { Plus, Trash2, Save, X, ImageIcon, Filter, AlertCircle, ArrowRight } from "lucide-react";
+import { Plus, Trash2, Save, X, ImageIcon, Filter, AlertCircle } from "lucide-react";
 import { QuestionDB, ExerciseTopicDB } from "@/types";
 
 export const AdminQuestions = () => {
@@ -11,7 +11,7 @@ export const AdminQuestions = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [showOptionE, setShowOptionE] = useState(false);
-  const [statusMsg, setStatusMsg] = useState(""); // Feedback visual
+  const [statusMsg, setStatusMsg] = useState("");
   
   const [formData, setFormData] = useState({
     category: "ARA", 
@@ -47,7 +47,7 @@ export const AdminQuestions = () => {
       }
       setFormData({ 
           category: "ARA", 
-          topic: topics[0].topic_tag, // Tenta selecionar o primeiro automaticamente
+          topic: topics[0].topic_tag,
           text: "", image_url: "", 
           answer_a: "", answer_b: "", answer_c: "", answer_d: "", answer_e: "", 
           correct_answer: "A" 
@@ -71,7 +71,7 @@ export const AdminQuestions = () => {
       const { data } = supabase.storage.from('questions').getPublicUrl(filePath);
       setFormData({ ...formData, image_url: data.publicUrl });
       setStatusMsg("Imagem carregada!");
-    } catch (err) { 
+    } catch { 
       alert("Erro ao enviar imagem. Verifique se o Bucket 'questions' existe e é público.");
     } finally {
       setUploading(false);
@@ -79,10 +79,9 @@ export const AdminQuestions = () => {
   };
 
   const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault(); // Impede recarregar a página
+    e.preventDefault();
     setStatusMsg("Salvando...");
 
-    // 1. Validação Manual (Caso o HTML falhe)
     if (!formData.topic) {
         alert("ERRO: O campo 'Categoria' está vazio. Selecione um card (Ex: RIPEAM).");
         setStatusMsg("Erro: Selecione uma categoria.");
@@ -97,14 +96,11 @@ export const AdminQuestions = () => {
     try {
       const finalAnswerE = (showOptionE && formData.answer_e.trim() !== "") ? formData.answer_e : null;
       
-      // Prepara o pacote para o banco
       const payload = { 
           ...formData, 
           answer_e: finalAnswerE, 
           active: true 
       };
-
-      console.log("Tentando salvar:", payload); // Olhe o F12 se der erro
 
       const { error } = await supabase.from('questions').insert([payload]);
 
@@ -118,7 +114,6 @@ export const AdminQuestions = () => {
       fetchData();
     } catch (error) {
        const msg = error instanceof Error ? error.message : "Erro desconhecido";
-       // Esse alerta vai te dizer EXATAMENTE o que deu errado
        alert("❌ ERRO AO SALVAR NO BANCO:\n" + msg + "\n\nDica: Você rodou o comando SQL para criar a coluna 'topic'?");
        setStatusMsg("Erro ao salvar.");
     }
@@ -153,7 +148,7 @@ export const AdminQuestions = () => {
                 <AlertCircle size={24} />
                 <div>
                     <h3 className="font-bold">Sistema Travado: Falta Categoria!</h3>
-                    <p className="text-sm">Vá no menu "Exercícios" e crie pelo menos um card (ex: RIPEAM) para destravar o cadastro.</p>
+                    <p className="text-sm">Vá no menu &quot;Exercícios&quot; e crie pelo menos um card (ex: RIPEAM) para destravar o cadastro.</p>
                 </div>
             </div>
         )}

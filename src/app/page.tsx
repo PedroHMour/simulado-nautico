@@ -38,10 +38,8 @@ const SIMULADOS_PRINCIPAIS: SimuladoCardType[] = [
 ];
 
 export default function App() {
-  // --- ESTADOS GLOBAIS ---
   const [loadingAuth, setLoadingAuth] = useState(true);
   const [telaAtual, setTelaAtualState] = useState<TelaTipo>("login");
-  
   const [loadingSimulado, setLoadingSimulado] = useState(false);
   
   // Modais
@@ -51,28 +49,25 @@ export default function App() {
   const [schoolModalOpen, setSchoolModalOpen] = useState(false);
   const [modalResetSenhaOpen, setModalResetSenhaOpen] = useState(false);
 
-  // Auth Inputs
+  // Auth
   const [email, setEmail] = useState("");
   const [senha, setSenha] = useState("");
   const [nome, setNome] = useState("");
   const [erroAuth, setErroAuth] = useState<string | null>(null);
-  
   const [usuario, setUsuario] = useState<Usuario | null>(null);
 
-  // Dados Dinâmicos
+  // Dados
   const [questions, setQuestions] = useState<QuestionDB[]>([]);
   const [exerciseTopics, setExerciseTopics] = useState<ExerciseTopicDB[]>([]);
-
+  
   // Quiz
   const [indicePergunta, setIndicePergunta] = useState(0);
   const [respostasUsuario, setRespostasUsuario] = useState<number[]>([]);
   const [tempo, setTempo] = useState(0);
   const [cronometroAtivo, setCronometroAtivo] = useState(false);
-
-  // Estado auxiliar para salvar a categoria correta no banco
   const [categoriaAtualSimulado, setCategoriaAtualSimulado] = useState<string>("GERAL");
 
-  // --- PERSISTÊNCIA DE TELA (URL) ---
+  // NAVEGAÇÃO
   const navegarPara = useCallback((novaTela: TelaTipo) => {
       setTelaAtualState(novaTela);
       const url = new URL(window.location.href);
@@ -80,108 +75,99 @@ export default function App() {
       window.history.replaceState({}, "", url);
   }, []);
 
-  // --- LOGOUT OTIMIZADO ---
   const handleLogout = useCallback(async () => {
     setUsuario(null);
     navegarPara("login");
     localStorage.clear();
     sessionStorage.clear();
-    try {
-        await supabase.auth.signOut();
-    } catch (err) {
-        console.error("Erro silencioso no logout:", err);
-    }
+    try { await supabase.auth.signOut(); } catch (err) { console.error("Erro logout:", err); }
   }, [navegarPara]);
 
-  // --- CARREGAR DADOS DO PERFIL (BACKGROUND) ---
   const carregarDadosPerfil = async (authUser: User) => {
     try {
-        const userBasico: Usuario = {
-            id: authUser.id,
-            email: authUser.email,
+        setUsuario(current => ({ 
+            ...current, 
+            id: authUser.id, 
+            email: authUser.email, 
             user_metadata: authUser.user_metadata,
             created_at: authUser.created_at
-        };
-        
-        setUsuario(current => ({ ...current, ...userBasico }));
+        }));
 
-        const { data: profile } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', authUser.id)
-            .single();
-        
+        const { data: profile } = await supabase.from('profiles').select('*').eq('id', authUser.id).single();
         if (profile) {
-            setUsuario(prev => prev ? ({ 
-                ...prev, 
-                school_id: profile.school_id,
-            }) : prev);
+            setUsuario(prev => prev ? ({ ...prev, school_id: profile.school_id }) : prev);
         }
-    } catch (error) {
-        console.error("Erro ao sincronizar perfil:", error);
-    }
+    } catch (error) { console.error("Erro perfil:", error); }
   };
 
-  // --- INICIALIZAÇÃO BLINDADA (CORREÇÃO DO LOADING INFINITO) ---
+  // --- INICIALIZAÇÃO BLINDADA ---
   useEffect(() => {
+    let mounted = true;
+
     const initApp = async () => {
         try {
-            // Tenta pegar a sessão
             const { data, error } = await supabase.auth.getSession();
-            
-            if (error) throw error; // Se der erro no Supabase, joga pro catch
+            if (error) throw error;
 
-            if (data.session) {
-                // Usuário logado
-                const params = new URLSearchParams(window.location.search);
-                const telaSalva = params.get("t") as TelaTipo;
-                if (telaSalva && telaSalva !== 'login') {
-                    setTelaAtualState(telaSalva);
+            if (mounted) {
+                if (data.session) {
+                    const params = new URLSearchParams(window.location.search);
+                    const telaSalva = params.get("t") as TelaTipo;
+                    if (telaSalva && telaSalva !== 'login') {
+                        setTelaAtualState(telaSalva);
+                    } else {
+                        setTelaAtualState("home");
+                    }
+                    carregarDadosPerfil(data.session.user);
                 } else {
-                    setTelaAtualState("home");
+                    navegarPara("login");
                 }
-                // Carrega dados extras sem travar a tela
-                carregarDadosPerfil(data.session.user);
-            } else {
-                // Não logado
-                navegarPara("login");
             }
         } catch (err) {
-            console.error("Erro na inicialização:", err);
-            navegarPara("login"); // Fallback de segurança
+            console.error("Erro Init:", err);
+            if (mounted) navegarPara("login");
         } finally {
-            // OBRIGATÓRIO: Desliga o loading aconteça o que acontecer
-            setLoadingAuth(false);
+            if (mounted) setLoadingAuth(false);
         }
     };
 
     initApp();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!mounted) return;
+
       if (event === 'SIGNED_IN' && session) {
+        setLoadingAuth(false);
         const params = new URLSearchParams(window.location.search);
         const telaSalva = params.get("t") as TelaTipo;
-        setTelaAtualState((telaSalva && telaSalva !== 'login') ? telaSalva : "home");
+        if (telaAtual === 'login') {
+            setTelaAtualState((telaSalva && telaSalva !== 'login') ? telaSalva : "home");
+        }
         await carregarDadosPerfil(session.user);
       } else if (event === 'SIGNED_OUT') {
         setUsuario(null);
         navegarPara("login");
+        setLoadingAuth(false);
       } else if (event === 'PASSWORD_RECOVERY') {
         setModalResetSenhaOpen(true);
       }
     });
 
-    return () => { subscription.unsubscribe(); };
-  }, [navegarPara]);
+    return () => { 
+        mounted = false; 
+        subscription.unsubscribe(); 
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [navegarPara]); 
 
-  // Timer do Cronômetro
+  // Timer
   useEffect(() => {
     let int: NodeJS.Timeout;
     if (cronometroAtivo) int = setInterval(() => setTempo(t => t + 1), 1000);
     return () => clearInterval(int);
   }, [cronometroAtivo]);
 
-  // --- FETCH DE EXERCÍCIOS ---
+  // Fetch Exercícios
   useEffect(() => {
       if (telaAtual === 'exercicios' && usuario && exerciseTopics.length === 0) {
           const fetchExercicios = async () => {
@@ -198,20 +184,17 @@ export default function App() {
       }
   }, [telaAtual, usuario, exerciseTopics.length]);
 
-  // --- LÓGICA DE LOGIN ---
+  // Login/Cadastro
   const handleLoginSubmit = async (e: React.FormEvent) => {
       e.preventDefault();
       setErroAuth(null);
-
       try {
           if (telaAtual === 'login') {
             const { error } = await supabase.auth.signInWithPassword({ email, password: senha });
             if (error) throw error;
           } else {
             const { error } = await supabase.auth.signUp({ 
-                email, 
-                password: senha,
-                options: { data: { full_name: nome } }
+                email, password: senha, options: { data: { full_name: nome } } 
             });
             if (error) throw error;
             alert("Cadastro realizado! Verifique seu e-mail.");
@@ -225,12 +208,11 @@ export default function App() {
       }
   };
 
-  // --- INICIAR SIMULADO ---
+  // Iniciar Simulado
   const iniciarSimulado = async (config: { category?: string, topic?: string, limit: number, title: string }) => {
     setLoadingSimulado(true);
     try {
       let query = supabase.from('questions').select('*').eq('active', true);
-      
       if (config.category) query = query.eq('category', config.category);
       if (config.topic) query = query.eq('topic', config.topic);
 
@@ -239,9 +221,7 @@ export default function App() {
       if (error) throw error;
       if (!data || data.length === 0) { alert(`Banco vazio para ${config.title}.`); return; }
 
-      // Salva qual a categoria atual para usar na hora de gravar o resultado
       setCategoriaAtualSimulado(config.category || config.topic || "GERAL");
-
       setQuestions(data.sort(() => Math.random() - 0.5) as QuestionDB[]);
       setModalDetalhesOpen(false);
       navegarPara("simulado");
@@ -250,62 +230,24 @@ export default function App() {
       setTempo(0);
       setCronometroAtivo(true);
       window.scrollTo(0, 0);
-    } catch (err: unknown) {
+    } catch (err) {
       console.error(err);
       alert("Erro ao iniciar simulado.");
     } finally { setLoadingSimulado(false); }
   };
 
-  // --- RENDERIZAÇÃO ---
-
-  if (loadingAuth) {
-      return (
-          <div className="min-h-screen flex items-center justify-center bg-gray-50">
-             <div className="w-10 h-10 border-4 border-blue-900 border-t-transparent rounded-full animate-spin"></div>
-          </div>
-      );
-  }
+  if (loadingAuth) return <div className="min-h-screen flex items-center justify-center bg-gray-50"><Loader2 className="animate-spin text-blue-900" size={40} /></div>;
 
   if (telaAtual === "login" || telaAtual === "cadastro") {
-    return (
-      <AuthForm 
-        loading={false}
-        onSubmit={handleLoginSubmit}
-        error={erroAuth} 
-        email={email} setEmail={setEmail} senha={senha} setSenha={setSenha} nome={nome} setNome={setNome} 
-        modo={telaAtual} 
-        alternarModo={() => { setErroAuth(null); navegarPara(telaAtual === 'login' ? 'cadastro' : 'login'); }} 
-      />
-    );
+    return <AuthForm loading={false} onSubmit={handleLoginSubmit} error={erroAuth} email={email} setEmail={setEmail} senha={senha} setSenha={setSenha} nome={nome} setNome={setNome} modo={telaAtual} alternarModo={() => navegarPara(telaAtual === 'login' ? 'cadastro' : 'login')} />;
   }
 
-  // --- TELA DE PROVA (QUIZ) ---
   if (telaAtual === "simulado") {
-    const responder = (idx: number) => { 
-        const n = [...respostasUsuario]; 
-        n[indicePergunta] = idx; 
-        setRespostasUsuario(n); 
-    };
-
-    const proxima = () => { 
-        if (indicePergunta < questions.length - 1) {
-            setIndicePergunta(i => i + 1); 
-        } else {
-            finalizarSimulado(); 
-        }
-    };
-
-    // --- FUNÇÃO CORRIGIDA: AGORA SALVA NO BANCO ---
     const finalizarSimulado = async () => { 
         setCronometroAtivo(false); 
-        
-        // 1. Calcula Acertos
         const mapLetras = ['A', 'B', 'C', 'D', 'E'];
-        const acertos = respostasUsuario.reduce((acc, idx, qIdx) => 
-            questions[qIdx].correct_answer === mapLetras[idx] ? acc + 1 : acc, 0
-        );
+        const acertos = respostasUsuario.reduce((acc, idx, qIdx) => questions[qIdx].correct_answer === mapLetras[idx] ? acc + 1 : acc, 0);
 
-        // 2. Tenta Salvar no Supabase
         if (usuario && usuario.id) {
             try {
                 await supabase.from('results').insert({
@@ -316,116 +258,57 @@ export default function App() {
                     time_spent_seconds: tempo,
                     school_id: usuario.school_id || null
                 });
-            } catch (error) {
-                console.error("Erro ao salvar resultado no banco:", error);
-                // Não bloqueia a tela de resultado, apenas loga o erro
-            }
+            } catch (error) { console.error("Erro save:", error); }
         }
-
-        // 3. Mostra o resultado
         navegarPara("resultado"); 
     };
-
-    return (
-        <QuizRunner 
-            questions={questions} 
-            indicePergunta={indicePergunta} 
-            respostasUsuario={respostasUsuario} 
-            tempo={tempo} 
-            onResponder={responder} 
-            onProxima={proxima} 
-            onSair={() => navegarPara("home")} 
-        />
-    );
+    return <QuizRunner questions={questions} indicePergunta={indicePergunta} respostasUsuario={respostasUsuario} tempo={tempo} onResponder={(idx) => { const n = [...respostasUsuario]; n[indicePergunta] = idx; setRespostasUsuario(n); }} onProxima={() => indicePergunta < questions.length - 1 ? setIndicePergunta(i => i + 1) : finalizarSimulado()} onSair={() => navegarPara("home")} />;
   }
 
-  // --- TELA DE RESULTADO ---
   if (telaAtual === "resultado") {
     const mapLetras = ['A', 'B', 'C', 'D', 'E'];
     const acertos = respostasUsuario.reduce((acc, idx, qIdx) => questions[qIdx].correct_answer === mapLetras[idx] ? acc + 1 : acc, 0);
     return <ResultView acertos={acertos} total={questions.length} tempo={tempo} onRestart={() => navegarPara("home")} />;
   }
 
-  // --- RENDER PRINCIPAL (DASHBOARD) ---
   return (
     <div className="min-h-screen bg-slate-50 font-sans pb-24 md:pb-0 fade-in duration-300">
-      <Navbar 
-        usuario={usuario} 
-        telaAtual={telaAtual as TelaTipo} 
-        setTelaAtual={navegarPara} 
-        handleLogout={handleLogout} 
-        onOpenSchool={() => setSchoolModalOpen(true)} 
-      />
+      <Navbar usuario={usuario} telaAtual={telaAtual as TelaTipo} setTelaAtual={navegarPara} handleLogout={handleLogout} onOpenSchool={() => setSchoolModalOpen(true)} />
       
-      {schoolModalOpen && usuario && (
-        <SchoolModal 
-            usuario={usuario} 
-            setOpen={setSchoolModalOpen} 
-            onSucesso={() => carregarDadosPerfil(usuario as unknown as User)} 
-        />
-      )}
-      
-      {modalDetalhesOpen && (
-        <ModalDetalhes 
-            simulado={simuladoSelecionado} 
-            setOpen={setModalDetalhesOpen} 
-            iniciar={() => iniciarSimulado({ 
-                category: simuladoSelecionado?.db_category, 
-                limit: simuladoSelecionado?.questoes || 10, 
-                title: simuladoSelecionado?.titulo || '' 
-            })} 
-            loading={loadingSimulado} 
-        />
-      )}
-      
+      {schoolModalOpen && usuario && <SchoolModal usuario={usuario} setOpen={setSchoolModalOpen} onSucesso={() => carregarDadosPerfil(usuario as unknown as User)} />}
+      {modalDetalhesOpen && <ModalDetalhes simulado={simuladoSelecionado} setOpen={setModalDetalhesOpen} iniciar={() => iniciarSimulado({ category: simuladoSelecionado?.db_category, limit: simuladoSelecionado?.questoes || 10, title: simuladoSelecionado?.titulo || '' })} loading={loadingSimulado} />}
       {modalPremiumOpen && <ModalPremium setOpen={setModalPremiumOpen} />}
       {modalResetSenhaOpen && <ModalResetPassword setOpen={setModalResetSenhaOpen} />}
 
-      {/* HOME */}
       {telaAtual === "home" && (
-        <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in slide-in-from-bottom-2 duration-500">
-           {/* Seção Admin */}
+        <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in slide-in-from-bottom-2">
            <div className="mb-6 bg-blue-900 rounded-xl p-4 flex items-center justify-between text-white shadow-lg">
-              <div><h3 className="font-bold text-lg">Área do Aluno</h3><p className="text-blue-200 text-sm">Gerencie seus estudos.</p></div>
+              <div><h3 className="font-bold text-lg">Área do Aluno</h3><p className="text-blue-200 text-sm">Bons estudos, {usuario?.user_metadata?.full_name?.split(' ')[0] || 'Comandante'}!</p></div>
               <div className="flex gap-2 flex-wrap justify-end">
-                 <button onClick={() => navegarPara("admin_questoes")} className="bg-white/10 text-white px-3 py-2 rounded-lg font-bold hover:bg-white/20 text-xs md:text-sm backdrop-blur-sm border border-white/10">Questões</button>
-                 <button onClick={() => navegarPara("admin_exercicios")} className="bg-white/10 text-white px-3 py-2 rounded-lg font-bold hover:bg-white/20 text-xs md:text-sm backdrop-blur-sm border border-white/10">Exercícios</button>
+                 <button onClick={() => navegarPara("admin_questoes")} className="bg-white/10 text-white px-3 py-2 rounded-lg font-bold hover:bg-white/20 text-xs md:text-sm border border-white/10">Questões</button>
+                 <button onClick={() => navegarPara("admin_exercicios")} className="bg-white/10 text-white px-3 py-2 rounded-lg font-bold hover:bg-white/20 text-xs md:text-sm border border-white/10">Exercícios</button>
                  <button onClick={() => navegarPara("admin_alunos")} className="bg-white text-blue-900 px-3 py-2 rounded-lg font-bold hover:bg-blue-50 text-xs md:text-sm shadow-sm">Alunos</button>
               </div>
            </div>
-           
-           <div className="mb-6"><h2 className="text-2xl font-bold text-gray-800">Simulados Oficiais</h2><p className="text-gray-500">Selecione sua habilitação para começar.</p></div>
+           <div className="mb-6"><h2 className="text-2xl font-bold text-gray-800">Simulados Oficiais</h2><p className="text-gray-500">Selecione sua habilitação.</p></div>
            <SimuladoList simulados={SIMULADOS_PRINCIPAIS} onSelect={(s) => { setSimuladoSelecionado(s); setModalDetalhesOpen(true); }} />
         </div>
       )}
 
-      {/* EXERCÍCIOS */}
       {telaAtual === "exercicios" && (
-        <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in slide-in-from-bottom-2 duration-500">
-           <div className="mb-6 flex justify-between items-end">
-             <div><h2 className="text-2xl font-bold text-gray-800">Exercícios Práticos</h2><p className="text-gray-500">Treine tópicos específicos da prova.</p></div>
-           </div>
-           
+        <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in slide-in-from-bottom-2">
+           <div className="mb-6"><h2 className="text-2xl font-bold text-gray-800">Exercícios Práticos</h2><p className="text-gray-500">Treine por matéria.</p></div>
            {exerciseTopics.length === 0 ? (
                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
                    {loadingAuth ? <Loader2 className="animate-spin text-gray-400 mb-2" /> : <Ship className="text-gray-300 mb-2" size={40} />}
-                   <p className="text-gray-400 font-medium">Carregando tópicos ou nenhum disponível...</p>
+                   <p className="text-gray-400 font-medium">Carregando tópicos...</p>
                </div>
            ) : (
                <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                  {exerciseTopics.map((topico) => (
-                   <div 
-                      key={topico.id} 
-                      onClick={() => iniciarSimulado({ topic: topico.topic_tag, limit: 10, title: topico.title })} 
-                      className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center gap-3 cursor-pointer hover:shadow-md transition-all relative overflow-hidden group"
-                   >
-                      <div className={`p-4 rounded-full ${topico.color_class} mb-1 group-hover:scale-110 transition-transform`}>
-                          {ICON_MAP[topico.icon_name] || <Ship />}
-                      </div>
-                      <div>
-                          <h3 className="font-bold text-gray-800 text-sm leading-tight mb-1">{topico.title}</h3>
-                          <p className="text-xs text-gray-400">{topico.description || "Iniciar prática"}</p>
-                      </div>
+                   <div key={topico.id} onClick={() => iniciarSimulado({ topic: topico.topic_tag, limit: 10, title: topico.title })} className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 flex flex-col items-center text-center gap-3 cursor-pointer hover:shadow-md transition-all group relative overflow-hidden">
+                      <div className={`p-4 rounded-full ${topico.color_class} mb-1 group-hover:scale-110 transition-transform`}>{ICON_MAP[topico.icon_name] || <Ship />}</div>
+                      <div><h3 className="font-bold text-gray-800 text-sm">{topico.title}</h3><p className="text-xs text-gray-400">{topico.description || "Praticar"}</p></div>
                       <div className="absolute top-2 right-2 text-gray-300"><Lock size={14} /></div>
                    </div>
                  ))}
@@ -434,14 +317,12 @@ export default function App() {
         </div>
       )}
 
-      {/* ADMIN E OUTRAS TELAS */}
       {telaAtual === "admin_questoes" && <div className="min-h-screen bg-slate-50 pb-20"><AdminQuestions /></div>}
       {telaAtual === "admin_alunos" && usuario && <div className="min-h-screen bg-slate-50 pb-20"><AdminStudents usuario={usuario} /></div>}
       {telaAtual === "admin_exercicios" && usuario && <div className="min-h-screen bg-slate-50 pb-20"><AdminExercises usuario={usuario} /></div>}
 
-      {/* APOSTILAS */}
       {telaAtual === "apostilas" && (
-          <div className="max-w-4xl mx-auto p-6 text-center animate-in slide-in-from-bottom-2 duration-500">
+          <div className="max-w-4xl mx-auto p-6 text-center animate-in slide-in-from-bottom-2">
              <div className="bg-white p-12 rounded-xl shadow-sm border border-gray-100">
                 <BookOpen size={48} className="mx-auto text-blue-200 mb-4" />
                 <h1 className="text-2xl font-bold text-gray-800 mb-2">Material Didático</h1>
@@ -450,44 +331,22 @@ export default function App() {
           </div>
       )}
 
-      {/* ESTATÍSTICAS */}
       {telaAtual === "estatisticas" && <StatsView />}
       
-      {/* PERFIL */}
       {telaAtual === "perfil" && (
-          <div className="max-w-md mx-auto p-6 animate-in slide-in-from-right-4 duration-300">
+          <div className="max-w-md mx-auto p-6 animate-in slide-in-from-right-4">
             <h1 className="text-2xl font-bold text-blue-900 mb-6">Meu Perfil</h1>
             <div className="bg-white p-6 rounded-2xl shadow-sm border border-gray-100 mb-4 flex items-center gap-4">
-                <div className="w-16 h-16 bg-blue-900 text-white rounded-full flex items-center justify-center text-2xl font-bold">
-                    {usuario?.user_metadata?.full_name?.charAt(0) || "A"}
-                </div>
-                <div>
-                    <h2 className="font-bold text-lg text-gray-800">{usuario?.user_metadata?.full_name || "Aluno"}</h2>
-                    <p className="text-sm text-gray-500">{usuario?.email}</p>
-                </div>
+                <div className="w-16 h-16 bg-blue-900 text-white rounded-full flex items-center justify-center text-2xl font-bold">{usuario?.user_metadata?.full_name?.charAt(0) || "A"}</div>
+                <div><h2 className="font-bold text-lg text-gray-800">{usuario?.user_metadata?.full_name}</h2><p className="text-sm text-gray-500">{usuario?.email}</p></div>
             </div>
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                <button className="w-full text-left p-4 border-b border-gray-50 hover:bg-gray-50 flex justify-between items-center text-gray-700 font-medium">
-                    Editar Meus Dados <ArrowRight size={16} className="text-gray-400"/>
-                </button>
-                <button 
-                  onClick={() => setSchoolModalOpen(true)} 
-                  className="w-full text-left p-4 border-b border-gray-50 hover:bg-gray-50 flex justify-between items-center text-gray-700 font-medium"
-                >
-                    <div className="flex items-center gap-2">
-                      <School size={16} className="text-gray-500" />
-                      <span>{usuario?.school ? `Escola: ${usuario.school.slug.toUpperCase()}` : "Vincular Escola"}</span>
-                    </div>
-                    <ArrowRight size={16} className="text-gray-400"/>
-                </button>
-
-                <button onClick={handleLogout} className="w-full text-left p-4 hover:bg-red-50 flex justify-between items-center text-red-600 font-bold">
-                    Sair da Conta <LogOut size={16} />
-                </button>
+                <button className="w-full text-left p-4 border-b border-gray-50 hover:bg-gray-50 flex justify-between items-center text-gray-700 font-medium">Editar Meus Dados <ArrowRight size={16} className="text-gray-400"/></button>
+                <button onClick={() => setSchoolModalOpen(true)} className="w-full text-left p-4 border-b border-gray-50 hover:bg-gray-50 flex justify-between items-center text-gray-700 font-medium"><div className="flex items-center gap-2"><School size={16} /><span>{usuario?.school ? `Escola: ${usuario.school.slug}` : "Vincular Escola"}</span></div><ArrowRight size={16} className="text-gray-400"/></button>
+                <button onClick={handleLogout} className="w-full text-left p-4 hover:bg-red-50 flex justify-between items-center text-red-600 font-bold">Sair da Conta <LogOut size={16} /></button>
             </div>
-          </div> 
+          </div>
       )}
-
       <MobileNav telaAtual={telaAtual} setTelaAtual={navegarPara} />
     </div>
   );

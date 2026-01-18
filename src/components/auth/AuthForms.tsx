@@ -67,11 +67,11 @@ export const AuthForm = ({
         });
         if (error) throw error;
         setMsgSucesso("E-mail de recuperação enviado! Verifique sua caixa de entrada.");
-    } catch (err: any) {
-        alert("Erro: " + err.message);
-    } finally {
-        setLoadingRecuperacao(false);
+    } catch (err: unknown) {
+    if (err instanceof Error) {
+        // use err.message
     }
+}
   };
 
   // --- TELA DE RECUPERAÇÃO DE SENHA (SIMPLES, DENTRO DO DESIGN ORIGINAL) ---

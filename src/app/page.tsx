@@ -31,7 +31,7 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 };
 
 const SIMULADOS_PRINCIPAIS: SimuladoCardType[] = [
-  { id: 1, titulo: "Motonauta", sigla: "MTA", db_category: "MTA", subtitulo: "Jet Ski em águas interiores", questoes: 20, tempo: "1h30", minimo: 10, icon: <Zap size={32} /> },
+  { id: 1, titulo: "Motonauta", sigla: "MTA", db_category: "MTA", subtitulo: "Jet Ski em águas interiores", questoes: 40, tempo: "1h30", minimo: 20, icon: <Zap size={32} /> },
   { id: 2, titulo: "Arrais-Amador", sigla: "ARA", db_category: "ARA", subtitulo: "Navegação interior", questoes: 40, tempo: "2h00", minimo: 20, icon: <Anchor size={32} /> },
   { id: 3, titulo: "Mestre-Amador", sigla: "MSA", db_category: "MSA", subtitulo: "Navegação costeira", questoes: 40, tempo: "2h00", minimo: 20, icon: <Ship size={32} /> },
   { id: 4, titulo: "Capitão-Amador", sigla: "CPA", db_category: "CPA", subtitulo: "Navegação oceânica", questoes: 40, tempo: "4h00", minimo: 20, icon: <Compass size={32} /> },
@@ -485,7 +485,7 @@ export default function App() {
                     Sair da Conta <LogOut size={16} />
                 </button>
             </div>
-          </div>
+          </div> 
       )}
 
       <MobileNav telaAtual={telaAtual} setTelaAtual={navegarPara} />

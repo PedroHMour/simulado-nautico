@@ -11,14 +11,18 @@ import { MobileNav } from "@/components/layout/MobileNav";
 import { AuthForm } from "@/components/auth/AuthForms";
 import { SimuladoList } from "@/components/dashboard/SimuladoList";
 import { StatsView } from "@/components/dashboard/StatsView";
-import { QuizRunner } from "@/components/simulado/QuizRunner";
-import { ResultView } from "@/components/simulado/ResultView";
-import { ModalDetalhes, ModalPremium } from "@/components/simulado/Modals";
+import { ModalDetalhes, ModalPremium } from "@/components/simulado/Modals"; // Import corrigido se usar arquivo separado
+import { QuizRunner, ResultView } from "@/components/simulado/ResultView"; // Importando do arquivo unificado
 import { SchoolModal } from "@/components/school/SchoolModal";
 import { AdminQuestions } from "@/components/admin/AdminQuestions";
 import { AdminStudents } from "@/components/admin/AdminStudents";
 import { AdminExercises } from "@/components/admin/AdminExercises";
 import { ModalResetPassword } from "@/components/auth/ModalResetPassword";
+
+// Se você estiver usando o ResultView.tsx unificado, os Modais podem estar lá dentro também.
+// Ajuste os imports acima conforme onde cada componente realmente está.
+// Vou assumir que ModalDetalhes e ModalPremium estão em ResultView.tsx baseado no seu ultimo envio
+import { ModalDetalhes as ModalDet, ModalPremium as ModalPrem } from "@/components/simulado/ResultView";
 
 // Ícones
 import { Anchor, Ship, Zap, Compass, Target, LifeBuoy, Flame, AlertTriangle, Lock, BookOpen, ArrowRight, LogOut, Loader2, School } from "lucide-react";
@@ -113,6 +117,7 @@ export default function App() {
                 if (data.session) {
                     const params = new URLSearchParams(window.location.search);
                     const telaSalva = params.get("t") as TelaTipo;
+                    
                     if (telaSalva && telaSalva !== 'login') {
                         setTelaAtualState(telaSalva);
                     } else {
@@ -139,10 +144,11 @@ export default function App() {
       if (event === 'SIGNED_IN' && session) {
         setLoadingAuth(false);
         const params = new URLSearchParams(window.location.search);
-        const telaSalva = params.get("t") as TelaTipo;
+        const telaSalva = params.get("t");
         
+        // Só redireciona se estiver na tela de login
         if (telaAtual === 'login') {
-             setTelaAtualState((telaSalva && telaSalva !== 'login') ? telaSalva : "home");
+             setTelaAtualState((telaSalva && telaSalva !== 'login') ? (telaSalva as TelaTipo) : "home");
         }
         await carregarDadosPerfil(session.user);
       } else if (event === 'SIGNED_OUT') {
@@ -158,7 +164,7 @@ export default function App() {
         mounted = false; 
         subscription.unsubscribe(); 
     };
-  }, [navegarPara]);
+  }, [navegarPara]); // Dependências limpas (telaAtual foi removida)
 
   // Timer
   useEffect(() => {
@@ -276,8 +282,11 @@ export default function App() {
       <Navbar usuario={usuario} telaAtual={telaAtual as TelaTipo} setTelaAtual={navegarPara} handleLogout={handleLogout} onOpenSchool={() => setSchoolModalOpen(true)} />
       
       {schoolModalOpen && usuario && <SchoolModal usuario={usuario} setOpen={setSchoolModalOpen} onSucesso={() => carregarDadosPerfil(usuario as unknown as User)} />}
-      {modalDetalhesOpen && <ModalDetalhes simulado={simuladoSelecionado} setOpen={setModalDetalhesOpen} iniciar={() => iniciarSimulado({ category: simuladoSelecionado?.db_category, limit: simuladoSelecionado?.questoes || 10, title: simuladoSelecionado?.titulo || '' })} loading={loadingSimulado} />}
-      {modalPremiumOpen && <ModalPremium setOpen={setModalPremiumOpen} />}
+      
+      {/* Modais importados do arquivo unificado */}
+      {modalDetalhesOpen && <ModalDet simulado={simuladoSelecionado} setOpen={setModalDetalhesOpen} iniciar={() => iniciarSimulado({ category: simuladoSelecionado?.db_category, limit: simuladoSelecionado?.questoes || 10, title: simuladoSelecionado?.titulo || '' })} loading={loadingSimulado} />}
+      {modalPremiumOpen && <ModalPrem setOpen={setModalPremiumOpen} />}
+      
       {modalResetSenhaOpen && <ModalResetPassword setOpen={setModalResetSenhaOpen} />}
 
       {telaAtual === "home" && (
@@ -300,7 +309,7 @@ export default function App() {
            <div className="mb-6"><h2 className="text-2xl font-bold text-gray-800">Exercícios Práticos</h2><p className="text-gray-500">Treine por matéria.</p></div>
            {exerciseTopics.length === 0 ? (
                <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-                   <Loader2 className="animate-spin text-blue-900" />
+                   {loadingAuth ? <Loader2 className="animate-spin text-gray-400 mb-2" /> : <Ship className="text-gray-300 mb-2" size={40} />}
                    <p className="text-gray-400 font-medium">Carregando tópicos...</p>
                </div>
            ) : (
@@ -331,9 +340,10 @@ export default function App() {
           </div>
       )}
 
+      {/* CORREÇÃO APLICADA AQUI: StatsView recebe o user_id para não travar */}
       {telaAtual === "estatisticas" && (
         <div className="pb-24">
-            <StatsView />
+            <StatsView user_id={usuario?.id} />
         </div>
       )}
       

@@ -1,5 +1,7 @@
+"use client";
+
 import React, { useEffect, useState } from "react";
-import { Award, AlertTriangle, BarChart3, Ship, Loader2, History, TrendingUp } from "lucide-react";
+import { BarChart3, Loader2, History, TrendingUp, BookOpen, Anchor } from "lucide-react";
 import { supabase } from "@/lib/supabase";
 
 interface StatData {
@@ -13,7 +15,7 @@ interface StatData {
 export const StatsView = () => {
   const [loading, setLoading] = useState(true);
   const [historico, setHistorico] = useState<StatData[]>([]);
-  const [media, setMedia] = useState(0);
+  const [abaAtiva, setAbaAtiva] = useState<'simulados' | 'exercicios'>('simulados');
 
   useEffect(() => {
     carregarEstatisticas();
@@ -28,114 +30,146 @@ export const StatsView = () => {
         .from('results')
         .select('*')
         .eq('user_id', user.id)
-        .order('created_at', { ascending: true }) 
-        .limit(20);
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
-
-      if (data) {
-        setHistorico(data);
-        const totalSimulados = data.length;
-        if (totalSimulados > 0) {
-          const somaPorcentagens = data.reduce((acc, curr) => {
-            return acc + (curr.score / curr.total_questions) * 100;
-          }, 0);
-          setMedia(Math.round(somaPorcentagens / totalSimulados));
-        }
-      }
+      if (data) setHistorico(data);
     } catch (err) {
-      console.error("Erro stats:", err);
+      console.error("Erro ao carregar estatísticas:", err);
     } finally {
       setLoading(false);
     }
   };
 
-  if (loading) return <div className="flex justify-center p-10"><Loader2 className="animate-spin text-blue-900"/></div>;
+  if (loading) return (
+    <div className="flex justify-center items-center p-20">
+      <Loader2 className="animate-spin text-blue-900" size={40}/>
+    </div>
+  );
 
   if (historico.length === 0) {
     return (
       <div className="max-w-4xl mx-auto p-8 text-center animate-in fade-in">
-        <div className="bg-white p-12 rounded-2xl border-2 border-dashed border-gray-200 flex flex-col items-center">
-          <History className="text-gray-300 mb-4" size={48} />
-          <h3 className="text-xl font-bold text-gray-700">Sem dados ainda</h3>
-          <p className="text-gray-500 mb-6">Faça seu primeiro simulado para ver sua evolução.</p>
+        <div className="bg-white p-12 rounded-3xl border border-dashed border-gray-200 flex flex-col items-center">
+          <History className="text-gray-300 mb-4" size={64} />
+          <h3 className="text-xl font-bold text-gray-700">Ainda não há dados</h3>
+          <p className="text-gray-500 mb-6">Complete um simulado ou exercício para ver sua evolução aqui.</p>
         </div>
       </div>
     );
   }
 
-  return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8 animate-in slide-in-from-bottom-4 duration-500 pb-20">
-      <div className="flex items-center gap-3 mb-6">
-         <div className="p-3 bg-blue-100 rounded-xl text-blue-900"><BarChart3 size={24} /></div>
-         <div>
-            <h2 className="text-2xl font-bold text-gray-800">Desempenho</h2>
-            <p className="text-gray-500 text-sm">Sua evolução nos últimos simulados.</p>
-         </div>
-      </div>
-      
-      {/* GRÁFICO MODERNO */}
-      <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 mb-6 relative">
-        <div className="flex items-center justify-between mb-8">
-            <h3 className="font-bold text-gray-700 flex items-center gap-2"><TrendingUp size={16} /> Histórico Recente</h3>
-            <span className="text-xs bg-gray-100 px-2 py-1 rounded text-gray-500">Últimos 20</span>
-        </div>
+  // Lógica de Separação: Simulados Oficiais vs Exercícios por Matéria
+  const categoriasSimulados = ['MTA', 'ARA', 'MSA', 'CPA'];
+  const dadosSimulados = historico.filter(h => categoriasSimulados.includes(h.category));
+  const dadosExercicios = historico.filter(h => !categoriasSimulados.includes(h.category));
 
-        <div className="h-48 relative flex items-end justify-between gap-2 px-2">
-          {/* Linhas de Grade */}
-          <div className="absolute top-0 left-0 w-full h-full pointer-events-none flex flex-col justify-between text-xs text-gray-300 font-mono">
-             <div className="border-b border-gray-100 w-full h-0 relative"><span className="absolute -top-3 right-0">100%</span></div>
-             <div className="border-b border-dashed border-gray-200 w-full h-0 relative"><span className="absolute -top-3 right-0 text-blue-300 font-bold">50%</span></div>
-             <div className="border-b border-gray-100 w-full h-0 relative"><span className="absolute -top-3 right-0">0%</span></div>
+  const calcularMedia = (lista: StatData[]) => {
+    if (lista.length === 0) return 0;
+    const soma = lista.reduce((acc, curr) => acc + (curr.score / curr.total_questions) * 100, 0);
+    return Math.round(soma / lista.length);
+  };
+
+  const getDestaqueMelhor = (lista: StatData[]) => {
+    if (lista.length === 0) return null;
+    return lista.reduce((prev, current) => 
+        (current.score / current.total_questions) > (prev.score / prev.total_questions) ? current : prev
+    );
+  };
+
+  const dadosExibicao = abaAtiva === 'simulados' ? dadosSimulados : dadosExercicios;
+  const melhorPerformance = getDestaqueMelhor(dadosExibicao);
+
+  return (
+    <div className="max-w-4xl mx-auto p-4 md:p-8 pb-32 animate-in fade-in duration-500">
+      
+      {/* SELETOR DE ABAS */}
+      <div className="flex bg-gray-100 p-1 rounded-2xl w-full mb-8">
+        <button 
+          onClick={() => setAbaAtiva('simulados')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${abaAtiva === 'simulados' ? 'bg-white text-blue-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          <Anchor size={18} /> Simulados
+        </button>
+        <button 
+          onClick={() => setAbaAtiva('exercicios')}
+          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${abaAtiva === 'exercicios' ? 'bg-white text-blue-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
+        >
+          <BookOpen size={18} /> Exercícios
+        </button>
+      </div>
+
+      {/* HEADER DE PERFORMANCE */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+          <div className="bg-blue-900 rounded-3xl p-6 text-white shadow-xl flex flex-col justify-between">
+              <div>
+                  <p className="text-blue-200 text-[10px] font-black uppercase tracking-widest mb-1">Média Geral ({abaAtiva})</p>
+                  <h3 className="text-5xl font-black">{calcularMedia(dadosExibicao)}%</h3>
+              </div>
+              <div className="mt-6 flex items-center gap-2 text-xs bg-white/10 w-fit px-3 py-1.5 rounded-full border border-white/10">
+                <TrendingUp size={14} className="text-green-400" />
+                <span>{dadosExibicao.length} atividades realizadas</span>
+              </div>
           </div>
 
-          {historico.map((item) => {
-            const porcentagem = Math.round((item.score / item.total_questions) * 100);
-            const aprovado = porcentagem >= 50;
-            
-            return (
-              <div key={item.id} className="w-full h-full flex items-end relative group">
-                {/* Tooltip Hover */}
-                <div className="absolute -top-12 left-1/2 -translate-x-1/2 bg-gray-900 text-white text-[10px] px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-all font-bold whitespace-nowrap z-10 shadow-xl pointer-events-none mb-2">
-                  {item.category}: {porcentagem}%
-                  <div className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
-                </div>
-                
-                {/* A Barra (Classe corrigida aqui) */}
-                <div 
-                  className={`w-full rounded-t-lg transition-all duration-700 ease-out hover:opacity-80 relative ${aprovado ? 'bg-linear-to-t from-green-500 to-green-400' : 'bg-linear-to-t from-red-500 to-red-400'}`}
-                  style={{ height: `${porcentagem}%` }}
-                >
-                    <div className="w-full h-1 bg-white/30 absolute top-0 rounded-t-lg"></div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-        <div className="text-center text-xs text-gray-400 mt-4 font-medium uppercase tracking-wider">Linha do Tempo</div>
+          <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-sm flex flex-col justify-between">
+              {melhorPerformance ? (
+                <>
+                  <div>
+                      <p className="text-gray-400 text-[10px] font-black uppercase tracking-widest mb-1">Melhor Resultado</p>
+                      <h3 className="text-3xl font-black text-gray-800">{Math.round((melhorPerformance.score / melhorPerformance.total_questions) * 100)}%</h3>
+                      <p className="text-sm font-bold text-blue-600 mt-1">{melhorPerformance.category}</p>
+                  </div>
+                  <div className="mt-4 flex items-center gap-2 text-[10px] text-gray-400 font-bold uppercase">
+                      <History size={12} />
+                      {new Date(melhorPerformance.created_at).toLocaleDateString()}
+                  </div>
+                </>
+              ) : (
+                <div className="flex items-center justify-center h-full text-gray-300 font-medium italic">Sem registros</div>
+              )}
+          </div>
       </div>
 
-      {/* CARDS INFORMATIVOS */}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center">
-          <p className="text-gray-400 text-xs uppercase font-bold mb-2 tracking-wide flex items-center gap-1">
-            <Award size={14} className="text-yellow-500"/> Média Geral
-          </p>
-          <span className={`text-4xl font-bold tracking-tight ${media >= 50 ? 'text-green-600' : 'text-red-500'}`}>
-            {media}%
-          </span>
-          <p className="text-xs text-gray-400 mt-1">{historico.length} provas</p>
-        </div>
+      {/* LISTAGEM DE HISTÓRICO VISUAL */}
+      <div className="space-y-4">
+        <h4 className="font-black text-gray-800 uppercase text-xs tracking-widest flex items-center gap-2 ml-1">
+            <BarChart3 size={16} className="text-blue-600" /> Histórico de Progresso
+        </h4>
         
-        <div className="bg-white p-6 rounded-3xl shadow-sm border border-gray-100 flex flex-col items-center justify-center text-center relative overflow-hidden group">
-          <p className="text-gray-400 text-xs uppercase font-bold mb-2 tracking-wide flex items-center gap-1">
-            <AlertTriangle size={14} className="text-blue-500"/> Último
-          </p>
-          <Ship size={48} className="text-blue-50 mb-2 absolute -right-4 -bottom-4 rotate-12 group-hover:scale-110 transition-transform" />
-          <span className="text-3xl font-bold text-gray-800 z-10">
-             {Math.round((historico[historico.length - 1].score / historico[historico.length - 1].total_questions) * 100)}%
-          </span>
-        </div>
+        {dadosExibicao.length === 0 ? (
+            <div className="py-12 text-center text-gray-400 text-sm font-medium italic">Nenhum dado para mostrar nesta aba.</div>
+        ) : (
+            dadosExibicao.map((item) => {
+                const perc = Math.round((item.score / item.total_questions) * 100);
+                const aprovado = perc >= 50;
+                
+                return (
+                    <div key={item.id} className="bg-white p-4 rounded-2xl border border-gray-50 shadow-sm hover:border-blue-100 transition-colors group">
+                        <div className="flex justify-between items-center mb-3">
+                            <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black text-xs ${aprovado ? 'bg-green-50 text-green-600' : 'bg-red-50 text-red-600'}`}>
+                                    {perc}%
+                                </div>
+                                <div>
+                                    <h5 className="font-bold text-gray-800 text-sm">{item.category}</h5>
+                                    <p className="text-[10px] text-gray-400 font-bold uppercase">{new Date(item.created_at).toLocaleDateString()}</p>
+                                </div>
+                            </div>
+                            <div className={`text-[10px] font-black px-3 py-1 rounded-full uppercase ${aprovado ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                {aprovado ? 'Aprovado' : 'Abaixo da Média'}
+                            </div>
+                        </div>
+                        <div className="w-full h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                            <div 
+                                className={`h-full transition-all duration-1000 ${aprovado ? 'bg-green-500' : 'bg-red-500'}`}
+                                style={{ width: `${perc}%` }}
+                            />
+                        </div>
+                    </div>
+                );
+            })
+        )}
       </div>
     </div>
   );

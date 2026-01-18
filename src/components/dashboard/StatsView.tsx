@@ -12,30 +12,33 @@ interface StatData {
   category: string;
 }
 
-export const StatsView = () => {
+// CORREÇÃO: Recebe o ID do usuário do pai (page.tsx)
+export const StatsView = ({ user_id }: { user_id?: string }) => {
   const [loading, setLoading] = useState(true);
   const [historico, setHistorico] = useState<StatData[]>([]);
   const [abaAtiva, setAbaAtiva] = useState<'simulados' | 'exercicios'>('simulados');
 
   useEffect(() => {
-    carregarEstatisticas();
-  }, []);
+    // Se o ID vier, carrega. Se não, para o loading para não travar a tela branca.
+    if (user_id) {
+        carregarEstatisticas(user_id);
+    } else {
+        setLoading(false);
+    }
+  }, [user_id]);
 
-  const carregarEstatisticas = async () => {
+  const carregarEstatisticas = async (uid: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
       const { data, error } = await supabase
         .from('results')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', uid)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       if (data) setHistorico(data);
     } catch (err) {
-      console.error("Erro ao carregar estatísticas:", err);
+      console.error("Erro stats:", err);
     } finally {
       setLoading(false);
     }
@@ -59,7 +62,7 @@ export const StatsView = () => {
     );
   }
 
-  // Lógica de Separação: Simulados Oficiais vs Exercícios por Matéria
+  // Separação de Dados
   const categoriasSimulados = ['MTA', 'ARA', 'MSA', 'CPA'];
   const dadosSimulados = historico.filter(h => categoriasSimulados.includes(h.category));
   const dadosExercicios = historico.filter(h => !categoriasSimulados.includes(h.category));
@@ -83,23 +86,17 @@ export const StatsView = () => {
   return (
     <div className="max-w-4xl mx-auto p-4 md:p-8 pb-32 animate-in fade-in duration-500">
       
-      {/* SELETOR DE ABAS */}
+      {/* ABAS */}
       <div className="flex bg-gray-100 p-1 rounded-2xl w-full mb-8">
-        <button 
-          onClick={() => setAbaAtiva('simulados')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${abaAtiva === 'simulados' ? 'bg-white text-blue-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-        >
+        <button onClick={() => setAbaAtiva('simulados')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${abaAtiva === 'simulados' ? 'bg-white text-blue-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
           <Anchor size={18} /> Simulados
         </button>
-        <button 
-          onClick={() => setAbaAtiva('exercicios')}
-          className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${abaAtiva === 'exercicios' ? 'bg-white text-blue-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}
-        >
+        <button onClick={() => setAbaAtiva('exercicios')} className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-bold transition-all ${abaAtiva === 'exercicios' ? 'bg-white text-blue-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'}`}>
           <BookOpen size={18} /> Exercícios
         </button>
       </div>
 
-      {/* HEADER DE PERFORMANCE */}
+      {/* HEADER */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <div className="bg-blue-900 rounded-3xl p-6 text-white shadow-xl flex flex-col justify-between">
               <div>
@@ -131,7 +128,7 @@ export const StatsView = () => {
           </div>
       </div>
 
-      {/* LISTAGEM DE HISTÓRICO VISUAL */}
+      {/* LISTA */}
       <div className="space-y-4">
         <h4 className="font-black text-gray-800 uppercase text-xs tracking-widest flex items-center gap-2 ml-1">
             <BarChart3 size={16} className="text-blue-600" /> Histórico de Progresso

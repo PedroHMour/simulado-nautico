@@ -1,4 +1,5 @@
 "use client";
+
 import React from "react";
 import { X, Crown, CheckCircle, Target, Clock, ChevronRight, Loader2, Award, AlertTriangle, ArrowRight, XCircle } from "lucide-react";
 import Image from "next/image";

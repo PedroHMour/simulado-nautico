@@ -144,7 +144,6 @@ export default function App() {
         if (telaAtual === 'login') {
              setTelaAtualState((telaSalva && telaSalva !== 'login') ? telaSalva : "home");
         }
-        
         await carregarDadosPerfil(session.user);
       } else if (event === 'SIGNED_OUT') {
         setUsuario(null);
@@ -159,7 +158,7 @@ export default function App() {
         mounted = false; 
         subscription.unsubscribe(); 
     };
-  }, [navegarPara]); 
+  }, [navegarPara]);
 
   // Timer
   useEffect(() => {
@@ -332,10 +331,9 @@ export default function App() {
           </div>
       )}
 
-      {/* CORREÇÃO: Passando user_id para evitar loop no mobile */}
       {telaAtual === "estatisticas" && (
         <div className="pb-24">
-            <StatsView user_id={usuario?.id} />
+            <StatsView />
         </div>
       )}
       

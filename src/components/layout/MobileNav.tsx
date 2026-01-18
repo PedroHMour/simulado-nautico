@@ -35,7 +35,7 @@ export const MobileNav = ({ telaAtual, setTelaAtual }: MobileNavProps) => {
           className={`flex flex-col items-center justify-center w-full h-full transition-all active:scale-90 ${getIconClass("exercicios")}`}
         >
           <Anchor size={22} strokeWidth={telaAtual === "exercicios" ? 2.5 : 2} />
-          <span className={`text-[10px] mt-1 ${telaAtual === "exercicios" ? "font-black" : "font-medium"}`}>Praticar</span>
+          <span className={`text-[10px] mt-1 ${telaAtual === "exercicios" ? "font-black" : "font-medium"}`}>Exercícios</span>
         </button>
 
         {/* Botão Apostilas */}
@@ -44,7 +44,7 @@ export const MobileNav = ({ telaAtual, setTelaAtual }: MobileNavProps) => {
           className={`flex flex-col items-center justify-center w-full h-full transition-all active:scale-90 ${getIconClass("apostilas")}`}
         >
           <BookOpen size={22} strokeWidth={telaAtual === "apostilas" ? 2.5 : 2} />
-          <span className={`text-[10px] mt-1 ${telaAtual === "apostilas" ? "font-black" : "font-medium"}`}>Material</span>
+          <span className={`text-[10px] mt-1 ${telaAtual === "apostilas" ? "font-black" : "font-medium"}`}>Apostilas</span>
         </button>
 
         {/* Botão Desempenho - Importante: Verifique se o nome "estatisticas" bate com o seu page.tsx */}
@@ -53,7 +53,7 @@ export const MobileNav = ({ telaAtual, setTelaAtual }: MobileNavProps) => {
           className={`flex flex-col items-center justify-center w-full h-full transition-all active:scale-90 ${getIconClass("estatisticas")}`}
         >
           <BarChart3 size={22} strokeWidth={telaAtual === "estatisticas" ? 2.5 : 2} />
-          <span className={`text-[10px] mt-1 ${telaAtual === "estatisticas" ? "font-black" : "font-medium"}`}>Evolução</span>
+          <span className={`text-[10px] mt-1 ${telaAtual === "estatisticas" ? "font-black" : "font-medium"}`}>Desempenho</span>
         </button>
 
         {/* Botão Perfil */}
